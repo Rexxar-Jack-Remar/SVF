@@ -32,6 +32,8 @@
 #include "Util/PTAStat.h"
 #include "MemoryModel/PointerAnalysisImpl.h"
 #include "SVFIR/SVFIR.h"
+#include <queue>
+#include <set>
 
 using namespace SVF;
 using namespace std;
@@ -68,6 +70,27 @@ void PTAStat::performStat()
             }
         }
     }
+
+    const SVFIR::CallSiteToFunPtrMap& indirectCallsites = pag->getIndirectCallsites();
+    u32_t totalIndirectCallsitePtsSize = 0;
+    u32_t indirectCallsiteSetSize = indirectCallsites.size();
+    double averageIndirectCallsitePtsSize = 0;
+    for (const auto& pair : indirectCallsites)
+    {
+        // const CallICFGNode* indirectCallsite = pair.first;
+        NodeID funcNodeId = pair.second;
+        const PointsTo& pts = pta->getPts(funcNodeId);
+        u32_t size = pts.count();
+        totalIndirectCallsitePtsSize += size;
+    }
+    if (0 != indirectCallsiteSetSize)
+    {
+        averageIndirectCallsitePtsSize = (double)totalIndirectCallsitePtsSize / indirectCallsiteSetSize;
+    }
+    timeStatMap["zzz_TotalIndirectCallsitePtsSize:"] = totalIndirectCallsitePtsSize;
+    timeStatMap["zzz_IndirectCallsiteSetSize:"] = indirectCallsiteSetSize;
+    timeStatMap["zzz_AverageIndirectCallsitePtsSize:"] = averageIndirectCallsitePtsSize;
+
     PTNumStatMap["LocalVarInRecur"] = localVarInRecursion.count();
 
     u32_t vmrss = 0;
@@ -121,6 +144,56 @@ void PTAStat::callgraphStat()
     }
 
     totalCycle = sccRepNodeSet.size();
+
+    // FunReachableFromEntry
+    std::vector<PTACallGraphNode*> entry = graph->getCallGraphEntry();
+    int funReachableFromEntry = 0;
+    std::set<PTACallGraphNode*> visited;
+    for (std::vector<PTACallGraphNode*>::iterator it = entry.begin();
+         it != entry.end(); ++it)
+    {
+        std::queue<PTACallGraphNode*> queue;
+        if (visited.find(*it) == visited.end())
+        {
+            queue.push(*it);
+            visited.insert(*it);
+            ++funReachableFromEntry; // visit
+        }
+        while (!queue.empty())
+        {
+            PTACallGraphNode* current = queue.front();
+            queue.pop();
+
+            for (PTACallGraphEdge* edge : current->getOutEdges())
+            {
+                PTACallGraphNode* dst = edge->getDstNode();
+                if (visited.find(dst) == visited.end())
+                {
+                    queue.push(dst);
+                    visited.insert(dst);
+                    ++funReachableFromEntry;
+                }
+            }
+        }
+    }
+    switch(pta->getAnalysisTy())
+    {
+    case PointerAnalysis::PTATY::AndersenWaveDiff_WPA:
+        PTNumStatMap["zzz_ander_FunReachableFromEntry:"] = funReachableFromEntry;
+        break;
+    case PointerAnalysis::PTATY::AndersenSCD_WPA:
+        PTNumStatMap["zzz_sander_FunReachableFromEntry:"] = funReachableFromEntry;
+        break;
+    case PointerAnalysis::PTATY::FSSPARSE_WPA:
+        PTNumStatMap["zzz_fspta_FunReachableFromEntry:"] = funReachableFromEntry;
+        break;
+    case PointerAnalysis::PTATY::VFS_WPA:
+        PTNumStatMap["zzz_vfspta_FunReachableFromEntry:"] = funReachableFromEntry;
+        break;
+    default:
+        PTNumStatMap["zzz_pta_FunReachableFromEntry:"] = funReachableFromEntry;
+    }
+    PTNumStatMap["zzz_FunReachableFromEntry:"] = funReachableFromEntry;
 
     PTNumStatMap["TotalNode"] = totalNode;
     PTNumStatMap["TotalCycle"] = totalCycle;

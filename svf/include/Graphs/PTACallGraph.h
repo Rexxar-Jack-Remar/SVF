@@ -34,6 +34,7 @@
 #include "SVFIR/SVFValue.h"
 #include "Graphs/ICFG.h"
 #include <set>
+#include <vector>
 
 namespace SVF
 {
@@ -364,6 +365,22 @@ public:
         return it->second;
     }
 
+    /// Get call graph entry(main)
+    inline std::vector<PTACallGraphNode*> getCallGraphEntry() const
+    {
+        std::vector<PTACallGraphNode*> entry;
+        FunToCallGraphNodeMap::const_iterator it =
+            funToCallGraphNodeMap.begin();
+        FunToCallGraphNodeMap::const_iterator eit =
+            funToCallGraphNodeMap.end();
+        for(; it != eit; ++it)
+        {
+            if(it->first->getName() == "main")
+                entry.push_back(it->second);
+        }
+        return entry;
+    }
+    
     //@}
 
     /// Get CallSiteID

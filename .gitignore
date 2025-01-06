@@ -24,3 +24,6 @@ doxygen/
 *.svf
 cmake-build-debug/
 compile_commands.json
+llvm-16-build
+llvm-16-source
+*.zip

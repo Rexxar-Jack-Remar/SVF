@@ -146,6 +146,17 @@ void VersionedFlowSensitiveStat::performStat()
     timeStatMap["AverageSCCSize"]   = (vfspta->numOfSCC == 0) ? 0 :
                                       ((double)vfspta->numOfNodesInSCC / vfspta->numOfSCC);
 
+    timeStatMap["zzz_vfspta_TopLvlMayAliases:"] = _topLvlMayAliases;
+    timeStatMap["zzz_vfspta_TopLvlPointerPairs:"] = _topLvlPointerPairs;
+    if(0 == _topLvlPointerPairs)
+    {
+        timeStatMap["zzz_vfspta_TopLvlMayAliasProportion:"] = 0;
+    }
+    else
+    {
+        timeStatMap["zzz_vfspta_TopLvlMayAliasProportion:"] = (double)_topLvlMayAliases / _topLvlPointerPairs;
+    }
+
     PTAStat::printStat("Versioned Flow-Sensitive Pointer Analysis Statistics");
 }
 
@@ -197,17 +208,36 @@ void VersionedFlowSensitiveStat::ptsSizeStat()
 {
     u32_t totalValidTopLvlPointers = 0;
     u32_t totalTopLvlPtsSize = 0;
-    for (SVFIR::iterator it = vfspta->getPAG()->begin(); it != vfspta->getPAG()->end(); ++it)
+    for (SVFIR::iterator liter = vfspta->getPAG()->begin(),
+                         eiter = vfspta->getPAG()->end();
+         liter != eiter; ++liter)
     {
-        if (!vfspta->getPAG()->isValidTopLevelPtr(it->second)) continue;
+        PAGNode* node1 = liter->second;
+        bool leftIsValidTopLevelPtr = vfspta->getPAG()->isValidTopLevelPtr(node1);
+        if (false == leftIsValidTopLevelPtr) 
+            continue;
 
-        NodeID p = it->first;
+        NodeID p = liter->first;
 
         totalValidTopLvlPointers++;
 
         u32_t size = vfspta->getPts(p).count();
         totalTopLvlPtsSize += size;
         if (size > _MaxTopLvlPtsSize) _MaxTopLvlPtsSize = size;
+
+        for (SVFIR::iterator riter = liter; riter != eiter; ++riter)
+        {
+            PAGNode* node2 = riter->second;
+            if (node1 == node2)
+                continue;
+            bool rightIsValidTopLevelPtr = pta->getPAG()->isValidTopLevelPtr(node2);
+            if (leftIsValidTopLevelPtr && rightIsValidTopLevelPtr)
+            {
+                ++_topLvlPointerPairs;
+                if (pta->alias(node1->getId(), node2->getId()) == AliasResult::MayAlias)
+                    ++_topLvlMayAliases;
+            }
+        }
     }
 
     if (totalValidTopLvlPointers != 0) _AvgTopLvlPtsSize = (double)totalTopLvlPtsSize / (double)totalValidTopLvlPointers;

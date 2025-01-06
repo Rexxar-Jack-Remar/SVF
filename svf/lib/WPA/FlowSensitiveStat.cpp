@@ -264,6 +264,17 @@ void FlowSensitiveStat::performStat()
     timeStatMap["AverageSCCSize"] = (fspta->numOfSCC == 0) ? 0 :
                                     ((double)fspta->numOfNodesInSCC / fspta->numOfSCC);
 
+    timeStatMap["zzz_fspta_TopLvlMayAliases:"] = _topLvlMayAliases;
+    timeStatMap["zzz_fspta_TopLvlPointerPairs:"] = _topLvlPointerPairs;
+    if(0 == _topLvlPointerPairs)
+    {
+        timeStatMap["zzz_fspta_TopLvlMayAliasProportion:"] = 0;
+    }
+    else
+    {
+        timeStatMap["zzz_fspta_TopLvlMayAliasProportion:"] = (double)_topLvlMayAliases / _topLvlPointerPairs;
+    }
+
     PTAStat::printStat("Flow-Sensitive Pointer Analysis Statistics");
 }
 
@@ -332,20 +343,37 @@ void FlowSensitiveStat::statPtsSize()
     /// get points-to set size information for top-level pointers.
     u32_t totalValidTopLvlPointers = 0;
     u32_t topTopLvlPtsSize = 0;
-    for (SVFIR::iterator iter = fspta->getPAG()->begin(), eiter = fspta->getPAG()->end();
-            iter != eiter; ++iter)
+    for (SVFIR::iterator liter = fspta->getPAG()->begin(),
+                         eiter = fspta->getPAG()->end();
+         liter != eiter; ++liter)
     {
-        NodeID node = iter->first;
-        if (fspta->getPAG()->isValidTopLevelPtr(iter->second) == false)
+        NodeID node = liter->first;
+        PAGNode* node1 = liter->second;
+        bool leftIsValidTopLevelPtr = fspta->getPAG()->isValidTopLevelPtr(node1);
+        if (false == leftIsValidTopLevelPtr)
             continue;
         u32_t size = fspta->getPts(node).count();
 
         totalValidTopLvlPointers++;
         topTopLvlPtsSize+=size;
 
-        if(size > _MaxPtsSize)	_MaxPtsSize = size;
+        if (size > _MaxPtsSize)	_MaxPtsSize = size;
 
         if (size > _MaxTopLvlPtsSize)	_MaxTopLvlPtsSize = size;
+
+        for (SVFIR::iterator riter = liter; riter != eiter; ++riter)
+        {
+            PAGNode* node2 = riter->second;
+            if (node1 == node2)
+                continue;
+            bool rightIsValidTopLevelPtr = pta->getPAG()->isValidTopLevelPtr(node2);
+            if (leftIsValidTopLevelPtr && rightIsValidTopLevelPtr)
+            {
+                ++_topLvlPointerPairs;
+                if (pta->alias(node1->getId(), node2->getId()) == AliasResult::MayAlias)
+                    ++_topLvlMayAliases;
+            }
+        }
     }
 
     if (totalValidTopLvlPointers != 0)

@@ -97,6 +97,23 @@ void AndersenStat::collectCycleInfo(ConstraintGraph* consCG)
     _NumOfCycles += repNodes.size();
 }
 
+// void AndersenStat::callGraphStat()
+// {
+//     CallGraph* svfirCallGraph = pta->getPAG()->getCallGraph();
+//     CallGraphNode* main = nullptr;
+//     for (const auto& item : *svfirCallGraph)
+//     {
+//         CallGraphNode* fun = item.second;
+//         if (isProgEntryFunction(fun->getFunction()))
+//             main = fun;
+//     }
+//     if (nullptr!=main)
+//     {
+//         int funReachableFromEntry = 0;
+        
+//     }
+// }
+
 void AndersenStat::constraintGraphStat()
 {
 
@@ -280,16 +297,28 @@ void AndersenStat::performStat()
     u32_t totalTopLevPointers = 0;
     u32_t totalPtsSize = 0;
     u32_t totalTopLevPtsSize = 0;
-    for (SVFIR::iterator iter = pta->getPAG()->begin(), eiter = pta->getPAG()->end();
-            iter != eiter; ++iter)
+
+    u32_t totalPointerPairs = 0;
+    u32_t topLevPointerPairs = 0;
+    u32_t totalMayAliases = 0;
+    u32_t topLevMayAliases = 0;
+
+    for (SVFIR::iterator liter = pta->getPAG()->begin(),
+                         eiter = pta->getPAG()->end();
+         liter != eiter; ++liter)
     {
-        NodeID node = iter->first;
+        NodeID node = liter->first;
         const PointsTo& pts = pta->getPts(node);
         u32_t size = pts.count();
         totalPointers++;
         totalPtsSize+=size;
 
-        if(pta->getPAG()->isValidTopLevelPtr(pta->getPAG()->getGNode(node)))
+        // bool leftIsValidTopLevelPtr =
+        //     pta->getPAG()->isValidTopLevelPtr(pta->getPAG()->getGNode(node));
+        PAGNode* node1 = liter->second;
+        bool leftIsValidTopLevelPtr =
+            pta->getPAG()->isValidTopLevelPtr(node1);
+        if (leftIsValidTopLevelPtr)
         {
             totalTopLevPointers++;
             totalTopLevPtsSize+=size;
@@ -297,6 +326,25 @@ void AndersenStat::performStat()
 
         if(size > _MaxPtsSize )
             _MaxPtsSize = size;
+
+        PAGNode* node2;
+        for(SVFIR::iterator riter = liter; riter != eiter; ++riter)
+        {
+            node2 = riter->second;
+            if (node1 == node2)
+                continue;
+            ++totalPointerPairs;
+            AliasResult result = pta->alias(node1->getId(), node2->getId());
+            if (result == AliasResult::MayAlias)
+                ++totalMayAliases;
+            bool rightIsValidTopLevelPtr = pta->getPAG()->isValidTopLevelPtr(node2);
+            if (leftIsValidTopLevelPtr && rightIsValidTopLevelPtr)
+            {
+                ++topLevPointerPairs;
+                if (result == AliasResult::MayAlias)
+                    ++topLevMayAliases;
+            }
+        }
     }
 
 
@@ -350,6 +398,27 @@ void AndersenStat::performStat()
     PTNumStatMap["PointsToConstPtr"] = _NumOfConstantPtr;
     PTNumStatMap["PointsToBlkPtr"] = _NumOfBlackholePtr;
 
+    // timeStatMap["z_Andersen_TotalMayAliases:"] = totalMayAliases;
+    // timeStatMap["z_Andersen_TotalPointerPair:"] = totalPointerPairs;
+    // if(0 == totalPointerPairs)
+    // {
+    //     timeStatMap["z_Andersen_TotalMayAliasProportion:"] = 0;
+    // }
+    // else
+    // {
+    //     timeStatMap["z_Andersen_TotalMayAliasProportion:"] = (double)totalMayAliases / totalPointerPairs;
+    // }
+    timeStatMap["zzz_Andersen_TopLevMayAliases:"] = topLevMayAliases;
+    timeStatMap["zzz_Andersen_TopLevPointerPairs:"] = topLevPointerPairs;
+    if(0 == topLevPointerPairs)
+    {
+        timeStatMap["zzz_Andersen_TopLevMayAliasProportion:"] = 0;
+    }
+    else
+    {
+        timeStatMap["zzz_Andersen_TopLevMayAliasProportion:"] = (double)topLevMayAliases / topLevPointerPairs;
+    }
+    
     PTAStat::printStat("Andersen Pointer Analysis Stats");
 }
 
