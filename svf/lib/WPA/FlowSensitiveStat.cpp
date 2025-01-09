@@ -343,6 +343,7 @@ void FlowSensitiveStat::statPtsSize()
     /// get points-to set size information for top-level pointers.
     u32_t totalValidTopLvlPointers = 0;
     u32_t topTopLvlPtsSize = 0;
+    std::cout << "开始统计 fspta TopLvlMayAliases" << std::endl;
     for (SVFIR::iterator liter = fspta->getPAG()->begin(),
                          eiter = fspta->getPAG()->end();
          liter != eiter; ++liter)
@@ -375,6 +376,7 @@ void FlowSensitiveStat::statPtsSize()
             }
         }
     }
+    std::cout << "结束统计 fspta TopLvlMayAliases" << std::endl;
 
     if (totalValidTopLvlPointers != 0)
         _AvgTopLvlPtsSize = (double)topTopLvlPtsSize/totalValidTopLvlPointers;

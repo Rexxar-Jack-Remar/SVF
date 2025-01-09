@@ -71,6 +71,7 @@ void PTAStat::performStat()
         }
     }
 
+    std::cout << "开始统计 indirect call sites" << std::endl;
     const SVFIR::CallSiteToFunPtrMap& indirectCallsites = pag->getIndirectCallsites();
     u32_t totalIndirectCallsitePtsSize = 0;
     u32_t indirectCallsiteSetSize = indirectCallsites.size();
@@ -87,9 +88,35 @@ void PTAStat::performStat()
     {
         averageIndirectCallsitePtsSize = (double)totalIndirectCallsitePtsSize / indirectCallsiteSetSize;
     }
-    timeStatMap["zzz_TotalIndirectCallsitePtsSize:"] = totalIndirectCallsitePtsSize;
-    timeStatMap["zzz_IndirectCallsiteSetSize:"] = indirectCallsiteSetSize;
-    timeStatMap["zzz_AverageIndirectCallsitePtsSize:"] = averageIndirectCallsitePtsSize;
+
+    switch(pta->getAnalysisTy())
+    {
+    case PointerAnalysis::PTATY::AndersenWaveDiff_WPA:
+        timeStatMap["zzz_ander_TotalIndirectCallsitePtsSize:"] = totalIndirectCallsitePtsSize;
+        timeStatMap["zzz_ander_IndirectCallsiteSetSize:"] = indirectCallsiteSetSize;
+        timeStatMap["zzz_ander_AverageIndirectCallsitePtsSize:"] = averageIndirectCallsitePtsSize;
+        break;
+    case PointerAnalysis::PTATY::AndersenSCD_WPA:
+        timeStatMap["zzz_sander_TotalIndirectCallsitePtsSize:"] = totalIndirectCallsitePtsSize;
+        timeStatMap["zzz_sander_IndirectCallsiteSetSize:"] = indirectCallsiteSetSize;
+        timeStatMap["zzz_sander_AverageIndirectCallsitePtsSize:"] = averageIndirectCallsitePtsSize;
+        break;
+    case PointerAnalysis::PTATY::FSSPARSE_WPA:
+        timeStatMap["zzz_fspta_TotalIndirectCallsitePtsSize:"] = totalIndirectCallsitePtsSize;
+        timeStatMap["zzz_fspta_IndirectCallsiteSetSize:"] = indirectCallsiteSetSize;
+        timeStatMap["zzz_fspta_AverageIndirectCallsitePtsSize:"] = averageIndirectCallsitePtsSize;
+        break;
+    case PointerAnalysis::PTATY::VFS_WPA:
+        timeStatMap["zzz_vfspta_TotalIndirectCallsitePtsSize:"] = totalIndirectCallsitePtsSize;
+        timeStatMap["zzz_vfspta_IndirectCallsiteSetSize:"] = indirectCallsiteSetSize;
+        timeStatMap["zzz_vfspta_AverageIndirectCallsitePtsSize:"] = averageIndirectCallsitePtsSize;
+        break;
+    default:
+        timeStatMap["zzz_TotalIndirectCallsitePtsSize:"] = totalIndirectCallsitePtsSize;
+        timeStatMap["zzz_IndirectCallsiteSetSize:"] = indirectCallsiteSetSize;
+        timeStatMap["zzz_AverageIndirectCallsitePtsSize:"] = averageIndirectCallsitePtsSize;
+    }
+    std::cout << "结束统计 indirect call sites" << std::endl;
 
     PTNumStatMap["LocalVarInRecur"] = localVarInRecursion.count();
 
@@ -146,6 +173,7 @@ void PTAStat::callgraphStat()
     totalCycle = sccRepNodeSet.size();
 
     // FunReachableFromEntry
+    std::cout << "开始统计 FunReachableFromEntry" << std::endl;
     std::vector<PTACallGraphNode*> entry = graph->getCallGraphEntry();
     int funReachableFromEntry = 0;
     std::set<PTACallGraphNode*> visited;
@@ -194,6 +222,7 @@ void PTAStat::callgraphStat()
         PTNumStatMap["zzz_pta_FunReachableFromEntry:"] = funReachableFromEntry;
     }
     PTNumStatMap["zzz_FunReachableFromEntry:"] = funReachableFromEntry;
+    std::cout << "结束统计 FunReachableFromEntry" << std::endl;
 
     PTNumStatMap["TotalNode"] = totalNode;
     PTNumStatMap["TotalCycle"] = totalCycle;

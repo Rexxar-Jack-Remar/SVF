@@ -303,10 +303,14 @@ void AndersenStat::performStat()
     u32_t totalMayAliases = 0;
     u32_t topLevMayAliases = 0;
 
+    std::cout << "开始统计 andersen TopLvlMayAliases" << std::endl;
+    int l = 0; // 
     for (SVFIR::iterator liter = pta->getPAG()->begin(),
                          eiter = pta->getPAG()->end();
          liter != eiter; ++liter)
     {
+        l++;
+        std::cout << "左：" << l << std::endl;
         NodeID node = liter->first;
         const PointsTo& pts = pta->getPts(node);
         u32_t size = pts.count();
@@ -328,8 +332,11 @@ void AndersenStat::performStat()
             _MaxPtsSize = size;
 
         PAGNode* node2;
+        int r = l - 1; // 
         for(SVFIR::iterator riter = liter; riter != eiter; ++riter)
         {
+            r++;
+            std::cout << "    右：" << r << std::endl;
             node2 = riter->second;
             if (node1 == node2)
                 continue;
@@ -346,6 +353,7 @@ void AndersenStat::performStat()
             }
         }
     }
+    std::cout << "结束统计 andersen TopLvlMayAliases" << std::endl;
 
 
     PTAStat::performStat();
@@ -408,17 +416,46 @@ void AndersenStat::performStat()
     // {
     //     timeStatMap["z_Andersen_TotalMayAliasProportion:"] = (double)totalMayAliases / totalPointerPairs;
     // }
-    timeStatMap["zzz_Andersen_TopLevMayAliases:"] = topLevMayAliases;
-    timeStatMap["zzz_Andersen_TopLevPointerPairs:"] = topLevPointerPairs;
-    if(0 == topLevPointerPairs)
+
+    switch (pta->getAnalysisTy())
     {
-        timeStatMap["zzz_Andersen_TopLevMayAliasProportion:"] = 0;
+    case PointerAnalysis::PTATY::AndersenWaveDiff_WPA:
+        timeStatMap["zzz_ander_TopLvlMayAliases:"] = topLevMayAliases;
+        timeStatMap["zzz_ander_TopLvlPointerPairs:"] = topLevPointerPairs;
+        if (0 == topLevPointerPairs)
+        {
+            timeStatMap["zzz_ander_TopLvlMayAliasProportion:"] = 0;
+        }
+        else
+        {
+            timeStatMap["zzz_ander_TopLvlMayAliasProportion:"] = (double)topLevMayAliases / topLevPointerPairs;
+        }
+        break;
+    case PointerAnalysis::PTATY::AndersenSCD_WPA:
+        timeStatMap["zzz_sander_TopLvlMayAliases:"] = topLevMayAliases;
+        timeStatMap["zzz_sander_TopLvlPointerPairs:"] = topLevPointerPairs;
+        if (0 == topLevPointerPairs)
+        {
+            timeStatMap["zzz_sander_TopLvlMayAliasProportion:"] = 0;
+        }
+        else
+        {
+            timeStatMap["zzz_sander_TopLvlMayAliasProportion:"] = (double)topLevMayAliases / topLevPointerPairs;
+        }
+        break;
+    default:
+        timeStatMap["zzz_Andersen_TopLvlMayAliases:"] = topLevMayAliases;
+        timeStatMap["zzz_Andersen_TopLvlPointerPairs:"] = topLevPointerPairs;
+        if (0 == topLevPointerPairs)
+        {
+            timeStatMap["zzz_Andersen_TopLvlMayAliasProportion:"] = 0;
+        }
+        else
+        {
+            timeStatMap["zzz_Andersen_TopLvlMayAliasProportion:"] = (double)topLevMayAliases / topLevPointerPairs;
+        }
     }
-    else
-    {
-        timeStatMap["zzz_Andersen_TopLevMayAliasProportion:"] = (double)topLevMayAliases / topLevPointerPairs;
-    }
-    
+
     PTAStat::printStat("Andersen Pointer Analysis Stats");
 }
 

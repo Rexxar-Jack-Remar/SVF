@@ -364,6 +364,7 @@ public:
         assert(it!=funToCallGraphNodeMap.end() && "call graph node not found!!");
         return it->second;
     }
+    //@}
 
     /// Get call graph entry(main)
     inline std::vector<PTACallGraphNode*> getCallGraphEntry() const
@@ -380,8 +381,6 @@ public:
         }
         return entry;
     }
-    
-    //@}
 
     /// Get CallSiteID
     //@{

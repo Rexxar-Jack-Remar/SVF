@@ -208,6 +208,7 @@ void VersionedFlowSensitiveStat::ptsSizeStat()
 {
     u32_t totalValidTopLvlPointers = 0;
     u32_t totalTopLvlPtsSize = 0;
+    std::cout << "开始统计 vfspta TopLvlMayAliases" << std::endl;
     for (SVFIR::iterator liter = vfspta->getPAG()->begin(),
                          eiter = vfspta->getPAG()->end();
          liter != eiter; ++liter)
@@ -239,6 +240,7 @@ void VersionedFlowSensitiveStat::ptsSizeStat()
             }
         }
     }
+    std::cout << "结束统计 vfspta TopLvlMayAliases" << std::endl;
 
     if (totalValidTopLvlPointers != 0) _AvgTopLvlPtsSize = (double)totalTopLvlPtsSize / (double)totalValidTopLvlPointers;
 
