@@ -133,11 +133,6 @@ public:
             {
                 return inst->getParent()->getParent();
             }
-            // For function arguments, return their parent function
-            else if (auto arg = SVFUtil::dyn_cast<SVFArgument>(value))
-            {
-                return arg->getParent();
-            }
         }
 
         // Return nullptr for globals/constants with no parent function
@@ -382,6 +377,83 @@ public:
     inline virtual const SVFType* getType() const
     {
         return mem->getType();
+    }
+
+    virtual const std::string toString() const;
+};
+
+
+/**
+ * @brief Class representing a function argument variable in the SVFIR
+ *
+ * This class models function argument in the program analysis. It extends ValVar
+ * to specifically handle function argument.
+ */
+class ArgValVar: public ValVar
+{
+    friend class SVFIRWriter;
+    friend class SVFIRReader;
+
+private:
+    const CallGraphNode* cgNode;
+    u32_t argNo;
+    bool uncalled;
+
+protected:
+    /// Constructor to create function argument (for SVFIRReader/deserialization)
+    ArgValVar(NodeID i, PNODEK ty = ArgNode) : ValVar(i, ty) {}
+
+public:
+    ///  Methods for support type inquiry through isa, cast, and dyn_cast:
+    //@{
+    static inline bool classof(const ArgValVar*)
+    {
+        return true;
+    }
+    static inline bool classof(const ValVar* node)
+    {
+        return node->getNodeKind() == ArgNode;
+    }
+    static inline bool classof(const SVFVar* node)
+    {
+        return node->getNodeKind() == ArgNode;
+    }
+    static inline bool classof(const GenericPAGNodeTy* node)
+    {
+        return node->getNodeKind() == ArgNode;
+    }
+    static inline bool classof(const SVFBaseNode* node)
+    {
+        return node->getNodeKind() == ArgNode;
+    }
+    //@}
+
+    /// Constructor
+    ArgValVar(NodeID i, u32_t argNo, const ICFGNode* icn, const CallGraphNode* callGraphNode,
+              bool isUncalled = false, PNODEK ty = ArgNode);
+
+    /// Return name of a LLVM value
+    inline const std::string getValueName() const
+    {
+        if (value)
+            return value->getName() + " (argument valvar)";
+        return " (argument valvar)";
+    }
+
+    virtual const SVFFunction* getFunction() const;
+
+    const SVFFunction* getParent() const;
+
+    ///  Return the index of this formal argument in its containing function.
+    /// For example in "void foo(int a, float b)" a is 0 and b is 1.
+    inline u32_t getArgNo() const
+    {
+        return argNo;
+    }
+
+    inline bool isArgOfUncalledFunction() const
+    {
+        return uncalled;
     }
 
     virtual const std::string toString() const;
@@ -652,8 +724,8 @@ public:
     //@}
 
     /// Constructor
-    HeapObjVar(const SVFFunction* func, const SVFType* svfType, NodeID i,
-               const MemObj* mem, PNODEK ty = HeapObjNode);
+    HeapObjVar(NodeID i, const MemObj* mem, const SVFType* svfType,
+               const SVFFunction* fun, PNODEK ty = HeapObjNode);
 
     /// Return name of a LLVM value
     inline const std::string getValueName() const
@@ -713,8 +785,8 @@ public:
     //@}
 
     /// Constructor
-    StackObjVar(const SVFFunction* f, const SVFType* svfType, NodeID i,
-                const MemObj* mem, PNODEK ty = StackObjNode);
+    StackObjVar(NodeID i, const MemObj* mem, const SVFType* svfType,
+                const SVFFunction* fun, PNODEK ty = StackObjNode);
 
     /// Return name of a LLVM value
     inline const std::string getValueName() const
@@ -766,7 +838,7 @@ public:
     }
 
     /// Constructor
-    FunValVar(const CallGraphNode* cgn, NodeID i, const ICFGNode* icn,
+    FunValVar(NodeID i, const ICFGNode* icn, const CallGraphNode* cgn,
               PNODEK ty = FunValNode);
 
     virtual const std::string toString() const;
@@ -814,7 +886,7 @@ public:
     //@}
 
     /// Constructor
-    FunObjVar(const CallGraphNode* cgNode, NodeID i, const MemObj* mem,
+    FunObjVar(NodeID i, const MemObj* mem, const CallGraphNode* cgNode,
               PNODEK ty = FunObjNode);
 
     inline const CallGraphNode* getCallGraphNode() const
@@ -997,7 +1069,7 @@ public:
     }
 
     /// Constructor
-    ConstantFPValVar(const SVFValue* val, double dv, NodeID i, const ICFGNode* icn,
+    ConstantFPValVar(const SVFValue* val, NodeID i, double dv, const ICFGNode* icn,
                      PNODEK ty = ConstantFPValNode)
         : ConstantDataValVar(val, i,  icn, ty), dval(dv)
     {
@@ -1056,7 +1128,7 @@ public:
     }
 
     /// Constructor
-    ConstantIntValVar(const SVFValue* val, s64_t sv, u64_t zv, NodeID i, const ICFGNode* icn,
+    ConstantIntValVar(const SVFValue* val, NodeID i, s64_t sv, u64_t zv, const ICFGNode* icn,
                       PNODEK ty = ConstantIntValNode)
         : ConstantDataValVar(val, i,  icn, ty), zval(zv), sval(sv)
     {
@@ -1255,7 +1327,7 @@ public:
     //@}
 
     /// Constructor
-    ConstantFPObjVar(const SVFValue* val, double dv, NodeID i, const MemObj* m, PNODEK ty = ConstantFPObjNode)
+    ConstantFPObjVar(const SVFValue* val, NodeID i, double dv, const MemObj* m, PNODEK ty = ConstantFPObjNode)
         : ConstantDataObjVar(val, i, m, ty), dval(dv)
     {
     }
@@ -1330,7 +1402,7 @@ public:
     //@}
 
     /// Constructor
-    ConstantIntObjVar(const SVFValue* val, s64_t sv, u64_t zv, NodeID i, const MemObj* m, PNODEK ty = ConstantIntObjNode)
+    ConstantIntObjVar(const SVFValue* val, NodeID i, s64_t sv, u64_t zv, const MemObj* m, PNODEK ty = ConstantIntObjNode)
         : ConstantDataObjVar(val, i, m, ty), zval(zv), sval(sv)
     {
     }
@@ -1433,7 +1505,7 @@ public:
 
 
     /// Constructor
-    RetPN(const CallGraphNode* node, NodeID i);
+    RetPN(NodeID i, const CallGraphNode* node);
 
     inline const CallGraphNode* getCallGraphNode() const
     {
@@ -1487,7 +1559,7 @@ public:
     //@}
 
     /// Constructor
-    VarArgPN(const CallGraphNode* node, NodeID i) : ValVar(nullptr, i, VarargNode), callGraphNode(node) {}
+    VarArgPN(NodeID i, const CallGraphNode* node) : ValVar(nullptr, i, VarargNode), callGraphNode(node) {}
 
     virtual const SVFFunction* getFunction() const;
 

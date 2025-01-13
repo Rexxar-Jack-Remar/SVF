@@ -472,14 +472,14 @@ NodeID SVFIR::addFIObjNode(const MemObj* obj)
     return addObjNode(obj->getValue(), node, obj->getId());
 }
 
-NodeID SVFIR::addFunObjNode(const CallGraphNode* callGraphNode, NodeID id)
+NodeID SVFIR::addFunObjNode(NodeID id, const CallGraphNode* callGraphNode)
 {
     const MemObj* mem = getMemObj(callGraphNode->getFunction());
     assert(mem->getId() == id && "not same object id?");
     //assert(findPAGNode(i) == false && "this node should not be created before");
     NodeID base = mem->getId();
     memToFieldsMap[base].set(mem->getId());
-    FunObjVar*node = new FunObjVar(callGraphNode, mem->getId(), mem);
+    FunObjVar*node = new FunObjVar(id, mem, callGraphNode);
     return addObjNode(mem->getValue(), node, mem->getId());
 }
 
@@ -670,11 +670,10 @@ bool SVFIR::isValidPointer(NodeID nodeId) const
 
     if (node->hasValue() && node->isPointer())
     {
-        if(const SVFArgument* arg = SVFUtil::dyn_cast<SVFArgument>(node->getValue()))
-        {
-            if (!(arg->getParent()->isDeclaration()))
-                return true;
-        }
+        if (const ValVar* pVar = pag->getBaseValVar(nodeId))
+            if (const ArgValVar* arg = SVFUtil::dyn_cast<ArgValVar>(pVar))
+                if (!(arg->getParent()->isDeclaration()))
+                    return true;
     }
 
     if ((node->getInEdges().empty() && node->getOutEdges().empty()))
@@ -694,7 +693,7 @@ bool SVFIR::isValidTopLevelPtr(const SVFVar* node)
                 return true;
             }
             else if(node->hasValue())
-                return !SVFUtil::isArgOfUncalledFunction(node->getValue());
+                return !SVFUtil::isArgOfUncalledFunction(node);
         }
     }
     return false;
