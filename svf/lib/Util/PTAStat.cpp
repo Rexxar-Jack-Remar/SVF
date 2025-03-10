@@ -71,7 +71,7 @@ void PTAStat::performStat()
         }
     }
 
-    std::cout << "开始统计 indirect call sites" << std::endl;
+    // std::cout << "开始统计 indirect call sites" << std::endl;
     const SVFIR::CallSiteToFunPtrMap& indirectCallsites = pag->getIndirectCallsites();
     u32_t totalIndirectCallsitePtsSize = 0;
     u32_t indirectCallsiteSetSize = indirectCallsites.size();
@@ -116,7 +116,7 @@ void PTAStat::performStat()
         timeStatMap["zzz_IndirectCallsiteSetSize:"] = indirectCallsiteSetSize;
         timeStatMap["zzz_AverageIndirectCallsitePtsSize:"] = averageIndirectCallsitePtsSize;
     }
-    std::cout << "结束统计 indirect call sites" << std::endl;
+    // std::cout << "结束统计 indirect call sites" << std::endl;
 
     PTNumStatMap["LocalVarInRecur"] = localVarInRecursion.count();
 
@@ -173,7 +173,7 @@ void PTAStat::callgraphStat()
     totalCycle = sccRepNodeSet.size();
 
     // FunReachableFromEntry
-    std::cout << "开始统计 FunReachableFromEntry" << std::endl;
+    // std::cout << "开始统计 FunReachableFromEntry" << std::endl;
     std::vector<PTACallGraphNode*> entry = graph->getCallGraphEntry();
     int funReachableFromEntry = 0;
     std::set<PTACallGraphNode*> visited;
@@ -222,7 +222,7 @@ void PTAStat::callgraphStat()
         PTNumStatMap["zzz_pta_FunReachableFromEntry:"] = funReachableFromEntry;
     }
     PTNumStatMap["zzz_FunReachableFromEntry:"] = funReachableFromEntry;
-    std::cout << "结束统计 FunReachableFromEntry" << std::endl;
+    // std::cout << "结束统计 FunReachableFromEntry" << std::endl;
 
     PTNumStatMap["TotalNode"] = totalNode;
     PTNumStatMap["TotalCycle"] = totalCycle;

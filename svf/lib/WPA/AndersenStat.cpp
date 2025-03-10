@@ -293,10 +293,28 @@ void AndersenStat::performStat()
     // stat null ptr number
     statNullPtr();
 
-    // u32_t totalPointers = 0;
-    // u32_t totalTopLevPointers = 0;
-    // u32_t totalPtsSize = 0;
-    // u32_t totalTopLevPtsSize = 0;
+    u32_t totalPointers = 0;
+    u32_t totalTopLevPointers = 0;
+    u32_t totalPtsSize = 0;
+    u32_t totalTopLevPtsSize = 0;
+    for (SVFIR::iterator iter = pta->getPAG()->begin(), eiter = pta->getPAG()->end();
+            iter != eiter; ++iter)
+        {
+        NodeID node = iter->first;
+        const PointsTo& pts = pta->getPts(node);
+        u32_t size = pts.count();
+        totalPointers++;
+        totalPtsSize+=size;
+
+        if(pta->getPAG()->isValidTopLevelPtr(pta->getPAG()->getGNode(node)))
+        {
+            totalTopLevPointers++;
+            totalTopLevPtsSize+=size;
+        }
+
+        if(size > _MaxPtsSize )
+            _MaxPtsSize = size;
+    }
 
     // u32_t totalPointerPairs = 0;
     // u32_t topLevPointerPairs = 0;
@@ -387,8 +405,8 @@ void AndersenStat::performStat()
     PTNumStatMap["DummyFieldPtrs"] = pag->getFieldValNodeNum();
     PTNumStatMap["FieldObjs"] = pag->getFieldObjNodeNum();
 
-    // timeStatMap["AvgPtsSetSize"] = (double)totalPtsSize/totalPointers;
-    // timeStatMap["AvgTopLvlPtsSize"] = (double)totalTopLevPtsSize/totalTopLevPointers;
+    timeStatMap["AvgPtsSetSize"] = (double)totalPtsSize/totalPointers;;
+    timeStatMap["AvgTopLvlPtsSize"] = (double)totalTopLevPtsSize/totalTopLevPointers;;
 
     PTNumStatMap["MaxPtsSetSize"] = _MaxPtsSize;
 

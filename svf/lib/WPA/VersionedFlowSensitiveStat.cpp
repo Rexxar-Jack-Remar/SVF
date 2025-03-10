@@ -208,38 +208,50 @@ void VersionedFlowSensitiveStat::ptsSizeStat()
 {
     u32_t totalValidTopLvlPointers = 0;
     u32_t totalTopLvlPtsSize = 0;
-    // std::cout << "开始统计 vfspta TopLvlMayAliases" << std::endl;
-    for (SVFIR::iterator liter = vfspta->getPAG()->begin(),
-                         eiter = vfspta->getPAG()->end();
-         liter != eiter; ++liter)
+    for (SVFIR::iterator it = vfspta->getPAG()->begin(); it != vfspta->getPAG()->end(); ++it)
     {
-        PAGNode* node1 = liter->second;
-        bool leftIsValidTopLevelPtr = vfspta->getPAG()->isValidTopLevelPtr(node1);
-        if (false == leftIsValidTopLevelPtr) 
-            continue;
+        if (!vfspta->getPAG()->isValidTopLevelPtr(it->second)) continue;
 
-        NodeID p = liter->first;
+        NodeID p = it->first;
 
         totalValidTopLvlPointers++;
 
         u32_t size = vfspta->getPts(p).count();
         totalTopLvlPtsSize += size;
         if (size > _MaxTopLvlPtsSize) _MaxTopLvlPtsSize = size;
-
-        // for (SVFIR::iterator riter = liter; riter != eiter; ++riter)
-        // {
-        //     PAGNode* node2 = riter->second;
-        //     if (node1 == node2)
-        //         continue;
-        //     bool rightIsValidTopLevelPtr = pta->getPAG()->isValidTopLevelPtr(node2);
-        //     if (leftIsValidTopLevelPtr && rightIsValidTopLevelPtr)
-        //     {
-        //         ++_topLvlPointerPairs;
-        //         if (pta->alias(node1->getId(), node2->getId()) == AliasResult::MayAlias)
-        //             ++_topLvlMayAliases;
-        //     }
-        // }
     }
+    // std::cout << "开始统计 vfspta TopLvlMayAliases" << std::endl;
+    // for (SVFIR::iterator liter = vfspta->getPAG()->begin(),
+    //                      eiter = vfspta->getPAG()->end();
+    //      liter != eiter; ++liter)
+    // {
+    //     PAGNode* node1 = liter->second;
+    //     bool leftIsValidTopLevelPtr = vfspta->getPAG()->isValidTopLevelPtr(node1);
+    //     if (false == leftIsValidTopLevelPtr) 
+    //         continue;
+
+    //     NodeID p = liter->first;
+
+    //     totalValidTopLvlPointers++;
+
+    //     u32_t size = vfspta->getPts(p).count();
+    //     totalTopLvlPtsSize += size;
+    //     if (size > _MaxTopLvlPtsSize) _MaxTopLvlPtsSize = size;
+
+    //     for (SVFIR::iterator riter = liter; riter != eiter; ++riter)
+    //     {
+    //         PAGNode* node2 = riter->second;
+    //         if (node1 == node2)
+    //             continue;
+    //         bool rightIsValidTopLevelPtr = pta->getPAG()->isValidTopLevelPtr(node2);
+    //         if (leftIsValidTopLevelPtr && rightIsValidTopLevelPtr)
+    //         {
+    //             ++_topLvlPointerPairs;
+    //             if (pta->alias(node1->getId(), node2->getId()) == AliasResult::MayAlias)
+    //                 ++_topLvlMayAliases;
+    //         }
+    //     }
+    // }
     // std::cout << "结束统计 vfspta TopLvlMayAliases" << std::endl;
 
     if (totalValidTopLvlPointers != 0) _AvgTopLvlPtsSize = (double)totalTopLvlPtsSize / (double)totalValidTopLvlPointers;
