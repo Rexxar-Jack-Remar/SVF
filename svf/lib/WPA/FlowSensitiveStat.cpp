@@ -264,16 +264,16 @@ void FlowSensitiveStat::performStat()
     timeStatMap["AverageSCCSize"] = (fspta->numOfSCC == 0) ? 0 :
                                     ((double)fspta->numOfNodesInSCC / fspta->numOfSCC);
 
-    timeStatMap["zzz_fspta_TopLvlMayAliases:"] = _topLvlMayAliases;
-    timeStatMap["zzz_fspta_TopLvlPointerPairs:"] = _topLvlPointerPairs;
-    if(0 == _topLvlPointerPairs)
-    {
-        timeStatMap["zzz_fspta_TopLvlMayAliasProportion:"] = 0;
-    }
-    else
-    {
-        timeStatMap["zzz_fspta_TopLvlMayAliasProportion:"] = (double)_topLvlMayAliases / _topLvlPointerPairs;
-    }
+    // timeStatMap["zzz_fspta_TopLvlMayAliases:"] = _topLvlMayAliases;
+    // timeStatMap["zzz_fspta_TopLvlPointerPairs:"] = _topLvlPointerPairs;
+    // if(0 == _topLvlPointerPairs)
+    // {
+    //     timeStatMap["zzz_fspta_TopLvlMayAliasProportion:"] = 0;
+    // }
+    // else
+    // {
+    //     timeStatMap["zzz_fspta_TopLvlMayAliasProportion:"] = (double)_topLvlMayAliases / _topLvlPointerPairs;
+    // }
 
     PTAStat::printStat("Flow-Sensitive Pointer Analysis Statistics");
 }
@@ -343,7 +343,7 @@ void FlowSensitiveStat::statPtsSize()
     /// get points-to set size information for top-level pointers.
     u32_t totalValidTopLvlPointers = 0;
     u32_t topTopLvlPtsSize = 0;
-    std::cout << "开始统计 fspta TopLvlMayAliases" << std::endl;
+    // std::cout << "开始统计 fspta TopLvlMayAliases" << std::endl;
     for (SVFIR::iterator liter = fspta->getPAG()->begin(),
                          eiter = fspta->getPAG()->end();
          liter != eiter; ++liter)
@@ -362,21 +362,21 @@ void FlowSensitiveStat::statPtsSize()
 
         if (size > _MaxTopLvlPtsSize)	_MaxTopLvlPtsSize = size;
 
-        for (SVFIR::iterator riter = liter; riter != eiter; ++riter)
-        {
-            PAGNode* node2 = riter->second;
-            if (node1 == node2)
-                continue;
-            bool rightIsValidTopLevelPtr = pta->getPAG()->isValidTopLevelPtr(node2);
-            if (leftIsValidTopLevelPtr && rightIsValidTopLevelPtr)
-            {
-                ++_topLvlPointerPairs;
-                if (pta->alias(node1->getId(), node2->getId()) == AliasResult::MayAlias)
-                    ++_topLvlMayAliases;
-            }
-        }
+        // for (SVFIR::iterator riter = liter; riter != eiter; ++riter)
+        // {
+        //     PAGNode* node2 = riter->second;
+        //     if (node1 == node2)
+        //         continue;
+        //     bool rightIsValidTopLevelPtr = pta->getPAG()->isValidTopLevelPtr(node2);
+        //     if (leftIsValidTopLevelPtr && rightIsValidTopLevelPtr)
+        //     {
+        //         ++_topLvlPointerPairs;
+        //         if (pta->alias(node1->getId(), node2->getId()) == AliasResult::MayAlias)
+        //             ++_topLvlMayAliases;
+        //     }
+        // }
     }
-    std::cout << "结束统计 fspta TopLvlMayAliases" << std::endl;
+    // std::cout << "结束统计 fspta TopLvlMayAliases" << std::endl;
 
     if (totalValidTopLvlPointers != 0)
         _AvgTopLvlPtsSize = (double)topTopLvlPtsSize/totalValidTopLvlPointers;

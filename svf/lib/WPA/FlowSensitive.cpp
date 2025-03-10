@@ -86,8 +86,8 @@ void FlowSensitive::solveConstraints()
     {
         numOfIteration++;
 
-        if(0 == numOfIteration % OnTheFlyIterBudgetForStat)
-            dumpStat();
+        // if(0 == numOfIteration % OnTheFlyIterBudgetForStat)
+        //     dumpStat();
 
         callGraphSCC->find();
 

@@ -108,8 +108,8 @@ void AndersenBase::solveConstraints()
     do
     {
         numOfIteration++;
-        if (0 == numOfIteration % iterationForPrintStat)
-            printStat();
+        // if (0 == numOfIteration % iterationForPrintStat)
+        //     printStat();
 
         reanalyze = false;
 

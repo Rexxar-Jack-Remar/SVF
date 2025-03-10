@@ -293,67 +293,67 @@ void AndersenStat::performStat()
     // stat null ptr number
     statNullPtr();
 
-    u32_t totalPointers = 0;
-    u32_t totalTopLevPointers = 0;
-    u32_t totalPtsSize = 0;
-    u32_t totalTopLevPtsSize = 0;
+    // u32_t totalPointers = 0;
+    // u32_t totalTopLevPointers = 0;
+    // u32_t totalPtsSize = 0;
+    // u32_t totalTopLevPtsSize = 0;
 
-    u32_t totalPointerPairs = 0;
-    u32_t topLevPointerPairs = 0;
-    u32_t totalMayAliases = 0;
-    u32_t topLevMayAliases = 0;
+    // u32_t totalPointerPairs = 0;
+    // u32_t topLevPointerPairs = 0;
+    // u32_t totalMayAliases = 0;
+    // u32_t topLevMayAliases = 0;
 
-    std::cout << "开始统计 andersen TopLvlMayAliases" << std::endl;
-    int l = 0; // 
-    for (SVFIR::iterator liter = pta->getPAG()->begin(),
-                         eiter = pta->getPAG()->end();
-         liter != eiter; ++liter)
-    {
-        l++;
-        std::cout << "左：" << l << std::endl;
-        NodeID node = liter->first;
-        const PointsTo& pts = pta->getPts(node);
-        u32_t size = pts.count();
-        totalPointers++;
-        totalPtsSize+=size;
+    // std::cout << "开始统计 andersen TopLvlMayAliases" << std::endl;
+    // int l = 0; // 
+    // for (SVFIR::iterator liter = pta->getPAG()->begin(),
+    //                      eiter = pta->getPAG()->end();
+    //      liter != eiter; ++liter)
+    // {
+    //     l++;
+    //     std::cout << "左：" << l << std::endl;
+    //     NodeID node = liter->first;
+    //     const PointsTo& pts = pta->getPts(node);
+    //     u32_t size = pts.count();
+    //     totalPointers++;
+    //     totalPtsSize+=size;
 
-        // bool leftIsValidTopLevelPtr =
-        //     pta->getPAG()->isValidTopLevelPtr(pta->getPAG()->getGNode(node));
-        PAGNode* node1 = liter->second;
-        bool leftIsValidTopLevelPtr =
-            pta->getPAG()->isValidTopLevelPtr(node1);
-        if (leftIsValidTopLevelPtr)
-        {
-            totalTopLevPointers++;
-            totalTopLevPtsSize+=size;
-        }
+    //     // bool leftIsValidTopLevelPtr =
+    //     //     pta->getPAG()->isValidTopLevelPtr(pta->getPAG()->getGNode(node));
+    //     PAGNode* node1 = liter->second;
+    //     bool leftIsValidTopLevelPtr =
+    //         pta->getPAG()->isValidTopLevelPtr(node1);
+    //     if (leftIsValidTopLevelPtr)
+    //     {
+    //         totalTopLevPointers++;
+    //         totalTopLevPtsSize+=size;
+    //     }
 
-        if(size > _MaxPtsSize )
-            _MaxPtsSize = size;
+    //     if(size > _MaxPtsSize )
+    //         _MaxPtsSize = size;
 
-        PAGNode* node2;
-        int r = l - 1; // 
-        for(SVFIR::iterator riter = liter; riter != eiter; ++riter)
-        {
-            r++;
-            std::cout << "    右：" << r << std::endl;
-            node2 = riter->second;
-            if (node1 == node2)
-                continue;
-            ++totalPointerPairs;
-            AliasResult result = pta->alias(node1->getId(), node2->getId());
-            if (result == AliasResult::MayAlias)
-                ++totalMayAliases;
-            bool rightIsValidTopLevelPtr = pta->getPAG()->isValidTopLevelPtr(node2);
-            if (leftIsValidTopLevelPtr && rightIsValidTopLevelPtr)
-            {
-                ++topLevPointerPairs;
-                if (result == AliasResult::MayAlias)
-                    ++topLevMayAliases;
-            }
-        }
-    }
-    std::cout << "结束统计 andersen TopLvlMayAliases" << std::endl;
+    //     PAGNode* node2;
+    //     int r = l - 1; // 
+    //     for(SVFIR::iterator riter = liter; riter != eiter; ++riter)
+    //     {
+    //         r++;
+    //         std::cout << "    右：" << r << std::endl;
+    //         node2 = riter->second;
+    //         if (node1 == node2)
+    //             continue;
+    //         ++totalPointerPairs;
+    //         AliasResult result = pta->alias(node1->getId(), node2->getId());
+    //         if (result == AliasResult::MayAlias)
+    //             ++totalMayAliases;
+    //         bool rightIsValidTopLevelPtr = pta->getPAG()->isValidTopLevelPtr(node2);
+    //         if (leftIsValidTopLevelPtr && rightIsValidTopLevelPtr)
+    //         {
+    //             ++topLevPointerPairs;
+    //             if (result == AliasResult::MayAlias)
+    //                 ++topLevMayAliases;
+    //         }
+    //     }
+    // }
+    // std::cout << "结束统计 andersen TopLvlMayAliases" << std::endl;
 
 
     PTAStat::performStat();
@@ -387,8 +387,8 @@ void AndersenStat::performStat()
     PTNumStatMap["DummyFieldPtrs"] = pag->getFieldValNodeNum();
     PTNumStatMap["FieldObjs"] = pag->getFieldObjNodeNum();
 
-    timeStatMap["AvgPtsSetSize"] = (double)totalPtsSize/totalPointers;;
-    timeStatMap["AvgTopLvlPtsSize"] = (double)totalTopLevPtsSize/totalTopLevPointers;;
+    // timeStatMap["AvgPtsSetSize"] = (double)totalPtsSize/totalPointers;
+    // timeStatMap["AvgTopLvlPtsSize"] = (double)totalTopLevPtsSize/totalTopLevPointers;
 
     PTNumStatMap["MaxPtsSetSize"] = _MaxPtsSize;
 
@@ -417,44 +417,44 @@ void AndersenStat::performStat()
     //     timeStatMap["z_Andersen_TotalMayAliasProportion:"] = (double)totalMayAliases / totalPointerPairs;
     // }
 
-    switch (pta->getAnalysisTy())
-    {
-    case PointerAnalysis::PTATY::AndersenWaveDiff_WPA:
-        timeStatMap["zzz_ander_TopLvlMayAliases:"] = topLevMayAliases;
-        timeStatMap["zzz_ander_TopLvlPointerPairs:"] = topLevPointerPairs;
-        if (0 == topLevPointerPairs)
-        {
-            timeStatMap["zzz_ander_TopLvlMayAliasProportion:"] = 0;
-        }
-        else
-        {
-            timeStatMap["zzz_ander_TopLvlMayAliasProportion:"] = (double)topLevMayAliases / topLevPointerPairs;
-        }
-        break;
-    case PointerAnalysis::PTATY::AndersenSCD_WPA:
-        timeStatMap["zzz_sander_TopLvlMayAliases:"] = topLevMayAliases;
-        timeStatMap["zzz_sander_TopLvlPointerPairs:"] = topLevPointerPairs;
-        if (0 == topLevPointerPairs)
-        {
-            timeStatMap["zzz_sander_TopLvlMayAliasProportion:"] = 0;
-        }
-        else
-        {
-            timeStatMap["zzz_sander_TopLvlMayAliasProportion:"] = (double)topLevMayAliases / topLevPointerPairs;
-        }
-        break;
-    default:
-        timeStatMap["zzz_Andersen_TopLvlMayAliases:"] = topLevMayAliases;
-        timeStatMap["zzz_Andersen_TopLvlPointerPairs:"] = topLevPointerPairs;
-        if (0 == topLevPointerPairs)
-        {
-            timeStatMap["zzz_Andersen_TopLvlMayAliasProportion:"] = 0;
-        }
-        else
-        {
-            timeStatMap["zzz_Andersen_TopLvlMayAliasProportion:"] = (double)topLevMayAliases / topLevPointerPairs;
-        }
-    }
+    // switch (pta->getAnalysisTy())
+    // {
+    // case PointerAnalysis::PTATY::AndersenWaveDiff_WPA:
+    //     timeStatMap["zzz_ander_TopLvlMayAliases:"] = topLevMayAliases;
+    //     timeStatMap["zzz_ander_TopLvlPointerPairs:"] = topLevPointerPairs;
+    //     if (0 == topLevPointerPairs)
+    //     {
+    //         timeStatMap["zzz_ander_TopLvlMayAliasProportion:"] = 0;
+    //     }
+    //     else
+    //     {
+    //         timeStatMap["zzz_ander_TopLvlMayAliasProportion:"] = (double)topLevMayAliases / topLevPointerPairs;
+    //     }
+    //     break;
+    // case PointerAnalysis::PTATY::AndersenSCD_WPA:
+    //     timeStatMap["zzz_sander_TopLvlMayAliases:"] = topLevMayAliases;
+    //     timeStatMap["zzz_sander_TopLvlPointerPairs:"] = topLevPointerPairs;
+    //     if (0 == topLevPointerPairs)
+    //     {
+    //         timeStatMap["zzz_sander_TopLvlMayAliasProportion:"] = 0;
+    //     }
+    //     else
+    //     {
+    //         timeStatMap["zzz_sander_TopLvlMayAliasProportion:"] = (double)topLevMayAliases / topLevPointerPairs;
+    //     }
+    //     break;
+    // default:
+    //     timeStatMap["zzz_Andersen_TopLvlMayAliases:"] = topLevMayAliases;
+    //     timeStatMap["zzz_Andersen_TopLvlPointerPairs:"] = topLevPointerPairs;
+    //     if (0 == topLevPointerPairs)
+    //     {
+    //         timeStatMap["zzz_Andersen_TopLvlMayAliasProportion:"] = 0;
+    //     }
+    //     else
+    //     {
+    //         timeStatMap["zzz_Andersen_TopLvlMayAliasProportion:"] = (double)topLevMayAliases / topLevPointerPairs;
+    //     }
+    // }
 
     PTAStat::printStat("Andersen Pointer Analysis Stats");
 }

@@ -161,8 +161,8 @@ private:
     u32_t _MaxAddrTakenVarPts;	///< max points-to set size of addr-taken variables.
     u32_t _NumOfAddrTakeVar;	///< number of occurrences of addr-taken variables in load/store.
 
-    u32_t _topLvlMayAliases;
-    u32_t _topLvlPointerPairs;
+    // u32_t _topLvlMayAliases;
+    // u32_t _topLvlPointerPairs;
 };
 
 class VersionedFlowSensitiveStat : public PTAStat
@@ -220,8 +220,8 @@ private:
     /// Average points-to set size for address-taken objects.
     double _AvgVersionPtsSize;
 
-    u32_t _topLvlMayAliases;
-    u32_t _topLvlPointerPairs;
+    // u32_t _topLvlMayAliases;
+    // u32_t _topLvlPointerPairs;
 };
 } // End namespace SVF
 
