@@ -229,6 +229,18 @@ const Option<bool> Options::PTSAllPrint(
     false
 );
 
+const Option<bool> Options::FreePTSPrint(
+    "print-free-pts",
+    "Print points-to set of top-level pointers that may point to freed objects",
+    false
+);
+
+const Option<bool> Options::FreePTSAllPrint(
+    "print-all-free-pts",
+    "Print all points-to sets that may point to freed objects",
+    false
+);
+
 const Option<bool> Options::PStat(
     "stat",
     "Statistic for Pointer analysis",

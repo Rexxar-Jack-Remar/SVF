@@ -115,6 +115,8 @@ public:
     static const Option<bool> FuncPointerPrint;
     static const Option<bool> PTSPrint;
     static const Option<bool> PTSAllPrint;
+    static const Option<bool> FreePTSPrint;
+    static const Option<bool> FreePTSAllPrint;
     static const Option<bool> PrintFieldWithBasePrefix;
     static const Option<bool> PStat;
     static const Option<u32_t> StatBudget;

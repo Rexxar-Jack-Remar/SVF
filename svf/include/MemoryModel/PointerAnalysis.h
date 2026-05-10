@@ -255,9 +255,17 @@ public:
     virtual void dumpAllPts() {}
     virtual void dumpCPts() {}
     virtual void dumpPts(NodeID ptr, const PointsTo& pts);
+    void dumpFreeTopLevelPtsTo();
+    void dumpAllFreePts();
     void printIndCSTargets();
     void dumpAllTypes();
     //@}
+
+    /// Collect objects that may be deallocated by free-like APIs.
+    PointsTo collectFreeTargetObjects();
+
+    /// Whether ptr's points-to set may alias any free target object.
+    bool mayPointToFreeTarget(NodeID ptr, const PointsTo& freeTargets);
 
 protected:
     /// Return all indirect callsites

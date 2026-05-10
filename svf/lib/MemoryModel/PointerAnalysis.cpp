@@ -32,6 +32,7 @@
 #include "Util/SVFUtil.h"
 
 #include "MemoryModel/PointerAnalysisImpl.h"
+#include "SABER/SaberCheckerAPI.h"
 #include "SVFIR/PAGBuilderFromFile.h"
 #include "Util/PTAStat.h"
 #include "Graphs/ThreadCallGraph.h"
@@ -188,11 +189,17 @@ void PointerAnalysis::finalize()
         //dumpCPts();
     }
 
+    if (Options::FreePTSPrint())
+        dumpFreeTopLevelPtsTo();
+
     if (Options::TypePrint())
         dumpAllTypes();
 
     if(Options::PTSAllPrint())
         dumpAllPts();
+
+    if(Options::FreePTSAllPrint())
+        dumpAllFreePts();
 
     if (Options::FuncPointerPrint())
         printIndCSTargets();
@@ -310,6 +317,107 @@ void PointerAnalysis::dumpPts(NodeID ptr, const PointsTo& pts)
             }
         }
     }
+}
+
+/*!
+ * Collect the union of points-to targets of pointer arguments passed to
+ * free-like deallocation APIs.
+ */
+PointsTo PointerAnalysis::collectFreeTargetObjects()
+{
+    PointsTo freeTargets;
+
+    for (SVFIR::CSToArgsListMap::iterator it = pag->getCallSiteArgsMap().begin(),
+            eit = pag->getCallSiteArgsMap().end(); it != eit; ++it)
+    {
+        const CallICFGNode* cs = it->first;
+        bool isDeallocCall = SaberCheckerAPI::getCheckerAPI()->isMemDealloc(cs);
+
+        if (!isDeallocCall && getCallGraph())
+        {
+            PTACallGraph::FunctionSet callees;
+            getCallGraph()->getCallees(cs, callees);
+            for (PTACallGraph::FunctionSet::const_iterator cit = callees.begin(),
+                    ecit = callees.end(); cit != ecit; ++cit)
+            {
+                if (SaberCheckerAPI::getCheckerAPI()->isMemDealloc(*cit))
+                {
+                    isDeallocCall = true;
+                    break;
+                }
+            }
+        }
+
+        if (!isDeallocCall)
+            continue;
+
+        SVFIR::SVFVarList& arglist = it->second;
+        for (SVFIR::SVFVarList::const_iterator ait = arglist.begin(),
+                aeit = arglist.end(); ait != aeit; ++ait)
+        {
+            const PAGNode* pagNode = *ait;
+            if (pagNode->isPointer())
+                freeTargets |= getPts(pagNode->getId());
+        }
+    }
+
+    return freeTargets;
+}
+
+/*!
+ * Return true if ptr may point to any object that is passed to a free-like API.
+ */
+bool PointerAnalysis::mayPointToFreeTarget(NodeID ptr, const PointsTo& freeTargets)
+{
+    if (freeTargets.empty())
+        return false;
+
+    const PointsTo& pts = getPts(ptr);
+    return pts.intersects(freeTargets);
+}
+
+/*!
+ * Dump points-to sets of top-level pointers that may alias a free target.
+ */
+void PointerAnalysis::dumpFreeTopLevelPtsTo()
+{
+    PointsTo freeTargets = collectFreeTargetObjects();
+    outs() << "==================Free-related Top-Level Points-To Sets==================\n";
+
+    for (OrderedNodeSet::iterator nIter = this->getAllValidPtrs().begin();
+            nIter != this->getAllValidPtrs().end(); ++nIter)
+    {
+        const PAGNode* node = getPAG()->getGNode(*nIter);
+        if (getPAG()->isValidTopLevelPtr(node) && mayPointToFreeTarget(node->getId(), freeTargets))
+            dumpPts(node->getId(), getPts(node->getId()));
+    }
+
+    outs().flush();
+}
+
+/*!
+ * Dump all points-to sets whose points-to targets may alias a free target.
+ */
+void PointerAnalysis::dumpAllFreePts()
+{
+    PointsTo freeTargets = collectFreeTargetObjects();
+    outs() << "==================Free-related Points-To Sets==================\n";
+
+    OrderedNodeSet pagNodes;
+    for(SVFIR::iterator it = pag->begin(), eit = pag->end(); it!=eit; it++)
+        pagNodes.insert(it->first);
+
+    for (NodeID n : pagNodes)
+    {
+        if (!mayPointToFreeTarget(n, freeTargets))
+            continue;
+
+        outs() << "----------------------------------------------\n";
+        dumpPts(n, getPts(n));
+    }
+
+    outs() << "----------------------------------------------\n";
+    outs().flush();
 }
 
 /*!
