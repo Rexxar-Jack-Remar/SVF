@@ -255,6 +255,7 @@ public:
     virtual void dumpAllPts() {}
     virtual void dumpCPts() {}
     virtual void dumpPts(NodeID ptr, const PointsTo& pts);
+    void dumpPtsOnly(NodeID ptr, const PointsTo& pts);
     void dumpFreeTopLevelPtsTo();
     void dumpAllFreePts();
     void printIndCSTargets();

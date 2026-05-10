@@ -320,6 +320,26 @@ void PointerAnalysis::dumpPts(NodeID ptr, const PointsTo& pts)
 }
 
 /*!
+ * Dump only the points-to set without target node details.
+ */
+void PointerAnalysis::dumpPtsOnly(NodeID ptr, const PointsTo& pts)
+{
+    outs() << "\nPtr " << ptr << " ";
+
+    if (pts.empty())
+    {
+        outs() << "\t\tPointsTo: {empty}\n";
+    }
+    else
+    {
+        outs() << "\t\tPointsTo: { ";
+        for (PointsTo::iterator it = pts.begin(), eit = pts.end(); it != eit; ++it)
+            outs() << *it << " ";
+        outs() << "}\n";
+    }
+}
+
+/*!
  * Collect the union of points-to targets of pointer arguments passed to
  * free-like deallocation APIs.
  */
@@ -389,7 +409,7 @@ void PointerAnalysis::dumpFreeTopLevelPtsTo()
     {
         const PAGNode* node = getPAG()->getGNode(*nIter);
         if (getPAG()->isValidTopLevelPtr(node) && mayPointToFreeTarget(node->getId(), freeTargets))
-            dumpPts(node->getId(), getPts(node->getId()));
+            dumpPtsOnly(node->getId(), getPts(node->getId()));
     }
 
     outs().flush();
@@ -412,11 +432,9 @@ void PointerAnalysis::dumpAllFreePts()
         if (!mayPointToFreeTarget(n, freeTargets))
             continue;
 
-        outs() << "----------------------------------------------\n";
-        dumpPts(n, getPts(n));
+        dumpPtsOnly(n, getPts(n));
     }
 
-    outs() << "----------------------------------------------\n";
     outs().flush();
 }
 
