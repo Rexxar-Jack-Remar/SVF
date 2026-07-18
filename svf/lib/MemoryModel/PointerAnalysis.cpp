@@ -48,6 +48,63 @@
 using namespace SVF;
 using namespace SVFUtil;
 
+namespace
+{
+
+std::string normalizeExtFunName(const SVFFunction* fun)
+{
+    if (fun == nullptr)
+        return "";
+
+    std::string name = fun->getName();
+    if (!name.empty() && name[0] == '\01')
+        name.erase(0, 1);
+    return name;
+}
+
+bool isTaintSourceLikeFun(const SVFFunction* fun)
+{
+    const std::string name = normalizeExtFunName(fun);
+
+    return name == "gets" || name == "fgets" || name == "fgets_unlocked" ||
+           name == "gzgets" || name == "read" || name == "pread" ||
+           name == "pread64" || name == "recv" || name == "__recv" ||
+           name == "recvfrom" || name == "recvmsg" || name == "fread" ||
+           name == "scanf" || name == "__isoc99_scanf" ||
+           name == "vscanf" || name == "__isoc99_vscanf" ||
+           name == "fscanf" || name == "__isoc99_fscanf" ||
+           name == "vfscanf" || name == "__isoc99_vfscanf" ||
+           name == "sscanf" || name == "__isoc99_sscanf" ||
+           name == "vsscanf" || name == "__isoc99_vsscanf" ||
+           name == "getenv";
+}
+
+bool isTaintSinkLikeFun(const SVFFunction* fun)
+{
+    const std::string name = normalizeExtFunName(fun);
+
+    return name == "system" || name == "popen" ||
+           name == "execl" || name == "execlp" || name == "execle" ||
+           name == "execv" || name == "execvp" || name == "execvpe" ||
+           name == "strcpy" || name == "__strcpy_chk" ||
+           name == "strncpy" || name == "__strncpy_chk" ||
+           name == "strcat" || name == "__strcat_chk" ||
+           name == "strncat" || name == "__strncat_chk" ||
+           name == "sprintf" || name == "__sprintf_chk" ||
+           name == "snprintf" || name == "__snprintf_chk" ||
+           name == "vsprintf" || name == "__vsprintf_chk" ||
+           name == "vsnprintf" || name == "__vsnprintf_chk" ||
+           name == "memcpy" || name == "__memcpy_chk" ||
+           name == "memmove" || name == "__memmove_chk";
+}
+
+bool isTaintRelatedFun(const SVFFunction* fun)
+{
+    return isTaintSourceLikeFun(fun) || isTaintSinkLikeFun(fun);
+}
+
+} // End anonymous namespace
+
 
 SVFIR* PointerAnalysis::pag = nullptr;
 
@@ -192,6 +249,9 @@ void PointerAnalysis::finalize()
     if (Options::FreePTSPrint())
         dumpFreeTopLevelPtsTo();
 
+    if (Options::TaintPTSPrint())
+        dumpTaintTopLevelPtsTo();
+
     if (Options::TypePrint())
         dumpAllTypes();
 
@@ -200,6 +260,9 @@ void PointerAnalysis::finalize()
 
     if(Options::FreePTSAllPrint())
         dumpAllFreePts();
+
+    if(Options::TaintPTSAllPrint())
+        dumpAllTaintPts();
 
     if (Options::FuncPointerPrint())
         printIndCSTargets();
@@ -397,6 +460,72 @@ bool PointerAnalysis::mayPointToFreeTarget(NodeID ptr, const PointsTo& freeTarge
 }
 
 /*!
+ * Collect the union of points-to targets of pointers used by taint source/sink
+ * APIs. Source returns, source output arguments, and sink input arguments are
+ * all included so the dump covers the call boundary objects relevant to taint.
+ */
+PointsTo PointerAnalysis::collectTaintTargetObjects()
+{
+    PointsTo taintTargets;
+
+    for (SVFIR::CSToArgsListMap::iterator it = pag->getCallSiteArgsMap().begin(),
+            eit = pag->getCallSiteArgsMap().end(); it != eit; ++it)
+    {
+        const CallICFGNode* cs = it->first;
+        bool isTaintCall = isTaintRelatedFun(cs->getCalledFunction());
+
+        if (!isTaintCall && getCallGraph())
+        {
+            PTACallGraph::FunctionSet callees;
+            getCallGraph()->getCallees(cs, callees);
+            for (PTACallGraph::FunctionSet::const_iterator cit = callees.begin(),
+                    ecit = callees.end(); cit != ecit; ++cit)
+            {
+                if (isTaintRelatedFun(*cit))
+                {
+                    isTaintCall = true;
+                    break;
+                }
+            }
+        }
+
+        if (!isTaintCall)
+            continue;
+
+        SVFIR::SVFVarList& arglist = it->second;
+        for (SVFIR::SVFVarList::const_iterator ait = arglist.begin(),
+                aeit = arglist.end(); ait != aeit; ++ait)
+        {
+            const PAGNode* pagNode = *ait;
+            if (pagNode->isPointer())
+                taintTargets |= getPts(pagNode->getId());
+        }
+
+        const RetICFGNode* retNode = cs->getRetICFGNode();
+        if (retNode != nullptr)
+        {
+            const SVFVar* actualRet = retNode->getActualRet();
+            if (actualRet != nullptr && actualRet->isPointer())
+                taintTargets |= getPts(actualRet->getId());
+        }
+    }
+
+    return taintTargets;
+}
+
+/*!
+ * Return true if ptr may point to any object related to taint source/sink APIs.
+ */
+bool PointerAnalysis::mayPointToTaintTarget(NodeID ptr, const PointsTo& taintTargets)
+{
+    if (taintTargets.empty())
+        return false;
+
+    const PointsTo& pts = getPts(ptr);
+    return pts.intersects(taintTargets);
+}
+
+/*!
  * Dump points-to sets of top-level pointers that may alias a free target.
  */
 void PointerAnalysis::dumpFreeTopLevelPtsTo()
@@ -409,6 +538,25 @@ void PointerAnalysis::dumpFreeTopLevelPtsTo()
     {
         const PAGNode* node = getPAG()->getGNode(*nIter);
         if (getPAG()->isValidTopLevelPtr(node) && mayPointToFreeTarget(node->getId(), freeTargets))
+            dumpPtsOnly(node->getId(), getPts(node->getId()));
+    }
+
+    outs().flush();
+}
+
+/*!
+ * Dump points-to sets of top-level pointers that may alias a taint target.
+ */
+void PointerAnalysis::dumpTaintTopLevelPtsTo()
+{
+    PointsTo taintTargets = collectTaintTargetObjects();
+    outs() << "==================Taint-related Top-Level Points-To Sets==================\n";
+
+    for (OrderedNodeSet::iterator nIter = this->getAllValidPtrs().begin();
+            nIter != this->getAllValidPtrs().end(); ++nIter)
+    {
+        const PAGNode* node = getPAG()->getGNode(*nIter);
+        if (getPAG()->isValidTopLevelPtr(node) && mayPointToTaintTarget(node->getId(), taintTargets))
             dumpPtsOnly(node->getId(), getPts(node->getId()));
     }
 
@@ -430,6 +578,29 @@ void PointerAnalysis::dumpAllFreePts()
     for (NodeID n : pagNodes)
     {
         if (!mayPointToFreeTarget(n, freeTargets))
+            continue;
+
+        dumpPtsOnly(n, getPts(n));
+    }
+
+    outs().flush();
+}
+
+/*!
+ * Dump all points-to sets whose points-to targets may alias a taint target.
+ */
+void PointerAnalysis::dumpAllTaintPts()
+{
+    PointsTo taintTargets = collectTaintTargetObjects();
+    outs() << "==================Taint-related Points-To Sets==================\n";
+
+    OrderedNodeSet pagNodes;
+    for(SVFIR::iterator it = pag->begin(), eit = pag->end(); it!=eit; it++)
+        pagNodes.insert(it->first);
+
+    for (NodeID n : pagNodes)
+    {
+        if (!mayPointToTaintTarget(n, taintTargets))
             continue;
 
         dumpPtsOnly(n, getPts(n));

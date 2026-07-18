@@ -258,6 +258,8 @@ public:
     void dumpPtsOnly(NodeID ptr, const PointsTo& pts);
     void dumpFreeTopLevelPtsTo();
     void dumpAllFreePts();
+    void dumpTaintTopLevelPtsTo();
+    void dumpAllTaintPts();
     void printIndCSTargets();
     void dumpAllTypes();
     //@}
@@ -267,6 +269,12 @@ public:
 
     /// Whether ptr's points-to set may alias any free target object.
     bool mayPointToFreeTarget(NodeID ptr, const PointsTo& freeTargets);
+
+    /// Collect objects that flow through taint source/sink APIs.
+    PointsTo collectTaintTargetObjects();
+
+    /// Whether ptr's points-to set may alias any taint-related object.
+    bool mayPointToTaintTarget(NodeID ptr, const PointsTo& taintTargets);
 
 protected:
     /// Return all indirect callsites

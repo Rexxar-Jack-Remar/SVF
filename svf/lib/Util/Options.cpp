@@ -241,6 +241,18 @@ const Option<bool> Options::FreePTSAllPrint(
     false
 );
 
+const Option<bool> Options::TaintPTSPrint(
+    "print-taint-pts",
+    "Print points-to set of top-level pointers related to taint source/sink APIs",
+    false
+);
+
+const Option<bool> Options::TaintPTSAllPrint(
+    "print-all-taint-pts",
+    "Print all points-to sets related to taint source/sink APIs",
+    false
+);
+
 const Option<bool> Options::PStat(
     "stat",
     "Statistic for Pointer analysis",
