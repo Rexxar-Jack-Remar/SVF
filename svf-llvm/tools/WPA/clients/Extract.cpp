@@ -67,6 +67,14 @@ Id Extractor::pointer(const Value* v)
     return id;
 }
 
+bool functionOrder(const Function* a, const Function* b)
+{
+    return std::make_pair(StringRef(a->getParent()->getModuleIdentifier()),
+                          a->getName()) <
+           std::make_pair(StringRef(b->getParent()->getModuleIdentifier()),
+                          b->getName());
+}
+
 void Extractor::layout()
 {
     for (Module& mod : modules->getLLVMModules())
@@ -77,30 +85,37 @@ void Extractor::layout()
                 SVF::SVFUtil::isExtCall(modules->getSVFFunction(&f)))
                 continue;
             functions.push_back(&f);
-            unsigned ordinal = 0;
-            for (const BasicBlock& bb : f)
+        }
+    }
+    // SVF can append cloned external-function bodies in different orders
+    // across fresh processes. Site and block IDs also appear in reports.
+    std::stable_sort(functions.begin(), functions.end(), functionOrder);
+    for (const Function* body : functions)
+    {
+        const Function& f = *body;
+        unsigned ordinal = 0;
+        for (const BasicBlock& bb : f)
+        {
+            Id block = m.cfg.size();
+            m.cfg.emplace_back();
+            for (const Instruction& inst : bb)
             {
-                Id block = m.cfg.size();
-                m.cfg.emplace_back();
-                for (const Instruction& inst : bb)
+                Id site = m.sites.size();
+                sites.emplace(&inst, site);
+                std::string label = f.getName().str() + "#" +
+                                    std::to_string(++ordinal) + "/" +
+                                    inst.getOpcodeName();
+                if (auto loc = inst.getDebugLoc())
+                    label += "@" + loc->getFilename().str() + ":" +
+                             std::to_string(loc.getLine());
+                m.sites.push_back({block, ordinal, std::move(label)});
+                if (auto ret = dyn_cast<ReturnInst>(&inst))
+                    returns[&f].push_back(ret);
+                if (isa<CallBase>(inst) && !isa<DbgInfoIntrinsic>(inst) &&
+                    inst.getNextNode())
                 {
-                    Id site = m.sites.size();
-                    sites.emplace(&inst, site);
-                    std::string label = f.getName().str() + "#" +
-                                        std::to_string(++ordinal) + "/" +
-                                        inst.getOpcodeName();
-                    if (auto loc = inst.getDebugLoc())
-                        label += "@" + loc->getFilename().str() + ":" +
-                                 std::to_string(loc.getLine());
-                    m.sites.push_back({block, ordinal, std::move(label)});
-                    if (auto ret = dyn_cast<ReturnInst>(&inst))
-                        returns[&f].push_back(ret);
-                    if (isa<CallBase>(inst) && !isa<DbgInfoIntrinsic>(inst) &&
-                        inst.getNextNode())
-                    {
-                        block = m.cfg.size();
-                        m.cfg.emplace_back();
-                    }
+                    block = m.cfg.size();
+                    m.cfg.emplace_back();
                 }
             }
         }
@@ -267,15 +282,7 @@ void Extractor::call(const CallBase& c, Id s, const std::vector<Id>& next)
                 targets.push_back(cast<Function>(
                     modules->getLLVMValue(dest->getDefFunForMultipleModule())));
     }
-    std::sort(targets.begin(), targets.end(),
-              [](const Function* a, const Function* b) {
-                  return std::make_pair(
-                             StringRef(a->getParent()->getModuleIdentifier()),
-                             a->getName()) <
-                         std::make_pair(
-                             StringRef(b->getParent()->getModuleIdentifier()),
-                             b->getName());
-              });
+    std::sort(targets.begin(), targets.end(), functionOrder);
     bool bypass = targets.empty() || isa<InvokeInst>(c) || isa<CallBrInst>(c);
     if (targets.empty())
         external(c, "<unresolved>", s);

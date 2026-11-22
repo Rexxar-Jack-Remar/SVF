@@ -385,6 +385,7 @@ void taint(const Model& m, Control& cfg, const Relations& alias,
         for (size_t k = 0; k < work.size(); ++k)
         {
             Id v = work[k];
+            auto tail = work.size();
             for (Id w : m.flow[v])
                 add(w, {v, Unknown, Unknown});
             auto ws = writes.find(v);
@@ -401,6 +402,9 @@ void taint(const Model& m, Control& cfg, const Relations& alias,
                             cfg.after(w.site, r.site))
                             add(r.value, {v, w.site, r.site});
             }
+            // Select witnesses by stable program event order, independent of
+            // the numeric SVF IDs assigned to equivalent memory addresses.
+            std::sort(work.begin() + tail, work.end());
         }
         std::set<Id> emitted;
         for (auto sink : m.sinks)

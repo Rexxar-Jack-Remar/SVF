@@ -87,6 +87,24 @@ def main():
                     uses = [u for record in records for u in record["uses"]]
                     assert len(uses) == 1 and "/load" in uses[0][1], uses
                 print(client,name,len(records),flush=True)
+        # Cloned library bodies may change insertion order across fresh WPA processes.
+        # Reorder named functions while preserving all instructions and call edges.
+        helpers = [
+            "void release(char *p){free(p);}",
+            "int access_byte(char *p){return *p;}",
+            "void input(char *p){read(0,p,8);}",
+            "int output(char *p){return puts(p);}",
+        ]
+        main_body = "int main(){char *p=malloc(8);input(p);int x=output(p);release(p);return x+access_byte(p);}"
+        expected = {}
+        for sequence in (helpers, list(reversed(helpers))):
+            c.write_text(DECL + "\n".join(sequence) + "\n" + main_body)
+            run([cfg.llvm_bin/"clang","-O0","-emit-llvm","-c",c,"-o",bc])
+            for client in CASES:
+                run([cfg.wpa,f"-{cfg.pta}",f"-alias-client={client}",f"-client-report={report}",bc])
+                actual = report.read_bytes()
+                assert actual and expected.setdefault(client, actual) == actual, (client,"function order")
+        print("stable function-order reports", flush=True)
         snap.write_bytes(snap.read_bytes()[:100])
         broken = subprocess.run([cfg.wpa, "-alias-client=uaf", f"-client-load={snap}"],capture_output=True)
         assert broken.returncode != 0, "truncated snapshot was accepted"
