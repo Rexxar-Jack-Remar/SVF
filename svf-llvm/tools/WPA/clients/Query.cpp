@@ -163,6 +163,8 @@ Query::Query(const Index& index, const std::string& backend, Id device, Id tile,
              bool verify, Times& times)
     : state(new State(index, times, verify, tile))
 {
+    if (!tile)
+        fail("tile capacity must be positive");
     for (auto [p, g] : index.pointerGroup)
     {
         state->row.emplace(p, state->groups.size());
@@ -189,13 +191,22 @@ Query::Query(const Index& index, const std::string& backend, Id device, Id tile,
 }
 Query::~Query() = default;
 
-void Query::serve(const std::vector<Id>& pointers, const Match& match)
+void Query::serve(const std::vector<Id>& pointers, const ConsumeTile& consume)
 {
     State& s = *state;
     auto start = Clock::now();
     std::vector<Id> rows;
+    if (pointers.size() > UINT32_MAX)
+        fail("candidate sequence exceeds the triangle decoder's 32-bit row "
+             "space");
     for (Id p : pointers)
-        rows.push_back(s.row.at(p));
+    {
+        auto it = s.row.find(p);
+        if (it == s.row.end())
+            fail("candidate NodeID missing from snapshot: " +
+                 std::to_string(p));
+        rows.push_back(it->second);
+    }
     uint64_t n = rows.size();
     s.times.candidates += n;
     uint64_t total = n ? n * (n - 1) / 2 : 0;
@@ -205,13 +216,6 @@ void Query::serve(const std::vector<Id>& pointers, const Match& match)
         s.gpu->candidates(rows);
 #endif
     s.times.query += seconds(start);
-    // Equal-position pairs are outside the triangle. Events at the same
-    // pointer still need the normalized self-answer.
-    start = Clock::now();
-    for (size_t i = 0; i < n; ++i)
-        if (s.groups[rows[i]] != Empty)
-            match(pointers[i], pointers[i]);
-    s.times.consume += seconds(start);
     size_t first = 0, second = 1;
     for (uint64_t base = 0; base < total; base += s.tile)
     {
@@ -233,22 +237,31 @@ void Query::serve(const std::vector<Id>& pointers, const Match& match)
         }
         s.times.query += seconds(start);
         start = Clock::now();
-        for (Id k = 0; k < size; ++k)
+        if (s.verify)
         {
-            bool answer = s.answers[k];
-            if (s.verify && answer != s.index.alias(s.groups[rows[first]],
-                                                    s.groups[rows[second]]))
-                fail("pair mismatch at SVF nodes " +
-                     std::to_string(pointers[first]) + "," +
-                     std::to_string(pointers[second]));
-            if (answer)
+            size_t i = first, j = second;
+            for (Id k = 0; k < size; ++k)
             {
-                ++s.times.hits;
-                match(pointers[first], pointers[second]);
+                if (bool(s.answers[k]) !=
+                    s.index.alias(s.groups[rows[i]], s.groups[rows[j]]))
+                    fail("pair mismatch at SVF nodes " +
+                         std::to_string(pointers[i]) + "," +
+                         std::to_string(pointers[j]));
+                if (++j == n)
+                    j = ++i + 1;
             }
-            if (++second == n)
-                second = ++first + 1;
         }
+        consume(base, llvm::ArrayRef<unsigned char>(s.answers.data(), size));
+        // Move to the first pair of the next tile, skipping entire rows.
+        uint64_t remaining = size;
+        while (remaining >= n - second)
+        {
+            remaining -= n - second;
+            second = ++first + 1;
+            if (first + 1 == n)
+                break;
+        }
+        second += remaining;
         ++s.times.tiles;
         s.times.consume += seconds(start);
     }

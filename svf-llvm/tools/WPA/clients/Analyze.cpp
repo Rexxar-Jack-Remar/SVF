@@ -4,8 +4,6 @@
 #include "llvm/Support/JSON.h"
 
 #include <algorithm>
-#include <deque>
-#include <numeric>
 #include <ostream>
 #include <set>
 #include <unordered_map>
@@ -136,7 +134,8 @@ public:
 };
 
 using Relations = std::unordered_map<Id, llvm::SparseBitVector<>>;
-Relations relations(const Model& m, const Control& cfg, bool uaf, Query& query)
+Relations relations(const Model& m, const Control& cfg, bool uaf, Query& query,
+                    Times& times)
 {
     enum
     {
@@ -215,15 +214,29 @@ Relations relations(const Model& m, const Control& cfg, bool uaf, Query& query)
         }
         if (!left || !right)
             continue;
-        query.serve(pointers, [&](Id a, Id b) {
-            auto keep = [&](Id writer, Id reader) {
-                if ((mask.at(writer) & Left) && (mask.at(reader) & Right))
-                    result[writer].set(reader);
-            };
-            keep(a, b);
-            if (a != b)
-                keep(b, a);
-        });
+        auto keep = [&](Id writer, Id reader) {
+            if ((mask.at(writer) & Left) && (mask.at(reader) & Right))
+                result[writer].set(reader);
+        };
+        // Two events can share a NodeID even in a one-element candidate set.
+        for (Id p : pointers)
+            if (m.index.pointerGroup.at(p) != Empty)
+                keep(p, p);
+        size_t first = 0, second = 1;
+        query.serve(pointers,
+                    [&](uint64_t, llvm::ArrayRef<unsigned char> answers) {
+                        for (unsigned char answer : answers)
+                        {
+                            if (answer)
+                            {
+                                ++times.hits;
+                                keep(pointers[first], pointers[second]);
+                                keep(pointers[second], pointers[first]);
+                            }
+                            if (++second == pointers.size())
+                                second = ++first + 1;
+                        }
+                    });
     }
     return result;
 }
@@ -419,7 +432,7 @@ void analyze(const Model& m, bool isUaf, const std::string& backend, Id device,
     times.index += seconds(start);
     start = Clock::now();
     Control cfg(m);
-    auto alias = relations(m, cfg, isUaf, query);
+    auto alias = relations(m, cfg, isUaf, query, times);
     times.graph += seconds(start) - times.query - times.consume;
     start = Clock::now();
     if (isUaf)

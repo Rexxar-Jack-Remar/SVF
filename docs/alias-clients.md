@@ -35,13 +35,15 @@ wpa=Release-build/bin/wpa
 
 从 bitcode 启动时选择一种 PTA，例如 `-ander` 或 `-vfspta`。快照包含规范化对象池、分组范围、SVF NodeID 映射、控制流、值依赖、事件、API 模型结果和位置。保存采用同目录临时文件和原子替换。回放从该文件恢复完整输入，可在独立进程或另一台有相同后端的机器上运行。
 
-`cpu` 使用规范化集合求交，`cuda` 使用隐式三角索引。`bitmap` 使用 Bitmap 的预构建 alias matrix，`pestrie` 使用 Pestrie 的持久化索引。后两者调用随 WPA 一起构建的 indexer 和原始 `IQuery::IsAlias`，源码取自 `gpu4pta` 提交 `21d73b4` 的 `pestrie/src`，保留原文件头。默认在每次调用中构建并加载这两个索引；指定 `-client-index-cache` 可按规范化输入内容和实现版本复用已写入的索引。`baseline_index` 记录当次的构建或加载状态。
+`cpu` 使用规范化集合求交，`cuda` 使用隐式三角索引。`bitmap` 使用 Bitmap 的预构建 alias matrix，`pestrie` 使用 Pestrie 的持久化索引。后两者调用随 WPA 一起构建的 indexer 和原始 `IQuery::IsAlias`，源码取自 `gpu4pta` 提交 `21d73b4` 的 `pestrie/src`，保留原文件头。默认在每次调用中构建并加载这两个索引。指定 `-client-index-cache` 可按规范化输入内容和实现版本复用已写入的索引。`baseline_index` 记录当次的构建或加载状态。
 
 ## 查询与分析语义
 
+C++ 入口 `Query::serve(pointers, consume)` 将每个连续区间的逻辑起点与只读布尔答案数组交给 `consume(base, answers)`。回调在下一块复用缓冲区前同步消费这段数据，所有后端使用同一接口。
+
 - SVF 扩展 base 和字段不敏感对象后，相同的非空 points-to 集共用一个分组。已知空集有独立标记。black-hole 和缺失地址映射走保守的 MayAlias 规则。不同事件使用同一 NodeID 时，另行处理该节点的自查询。
 - 程序按跨过程控制流的弱连通分量划分查询区域。UAF 提取释放参数与访问地址，taint 提取写入与读取地址。用对侧角色的对象并集筛掉不能参与任何相关边的地址。剩余候选按 NodeID 排序去重。每区独立枚举全部位置对。GPU 复用索引和答案缓冲区，按逻辑任务区间返回逐对答案。host 仅保留有相应读写或释放角色的别名关系。host 保留的关系和报告仍可能很大。
-- 控制流从 LLVM 基本块和调用处分段构建，间接调用使用所选 PTA 的已解析 callee，普通调用连接入口和返回续点。循环和递归用图可达性处理。函数可从多个调用点进入，返回边在调用点之间合并；异常调用有保守旁路。分析覆盖模块中的函数体，报告表示上下文不敏感、路径不敏感的潜在关系。
+- 控制流从 LLVM 基本块和调用处分段构建，间接调用使用所选 PTA 的已解析 callee，普通调用连接入口和返回续点。循环和递归用图可达性处理。函数可从多个调用点进入，返回边在调用点之间合并。异常调用有保守旁路。分析覆盖模块中的函数体，报告表示上下文不敏感、路径不敏感的潜在关系。
 - UAF 识别 `free`、`cfree`、已建模的 C++ delete 以及 `realloc` 的可能释放。访问来自 load、store、原子读改写和函数模型。每条结果要求实际访问在抽象控制流中位于释放之后，且地址别名。指针复制或 GEP 单独出现不会构成解引用。堆对象按 PTA 的抽象粒度处理，循环中不同运行时实例可能合并。
 - Taint 为每个 source 传播独立标签，共用同一批别名关系。SSA 值、phi/select、运算、实参/形参及返回值建立有向依赖。污点从一次内存写入传到控制流上随后可达且地址可能重叠的读取。内存采用弱更新，源地址与目标地址不同的复制由摘要显式连接。
 - 内存 source 包括 `read/pread/recv/recvfrom` 的缓冲区、`fread/fgets/gets` 的输出、`getenv` 返回的内容和 `scanf/fscanf` 的输出参数。字符输入 `getchar/getc/fgetc` 的返回值产生标量污点。每个 API 仅处理实现声明的参数角色，例如 `recvfrom` 当前处理数据缓冲区。复制覆盖 LLVM memcpy/memmove、常见 C 字符串复制、`strdup` 和 `sscanf` 的输入到输出。`memset` 将填充值写入目标内存。
@@ -65,7 +67,7 @@ stderr 的 `CLIENT_METRICS` JSON 包含耗时、查询数、事件数及结果�
 | `solve_s`、`report_s` | 传播、控制流见证构造，以及报告编码和写入。总时间还包含关闭文件、释放资源等开销 |
 | `wpa_peak_rss_bytes`、`cuda_buffer_bytes` | Linux 的 WPA 进程峰值 RSS，以及查询后端所持设备缓冲区容量。CUDA context、驱动和 indexer 子进程有各自的内存开销 |
 
-单独的 `-client-verify` 适用于正确性检查。从 bitcode 启动时，它对地址表内包括自查询在内的所有组合调用 SVF 原生 alias 以校验规范化；每次查询时它还比较选定后端的每一条答案。该开销可达二次规模。正式计时通过比较输出文件的 SHA-256 核对结果。
+单独的 `-client-verify` 适用于正确性检查。从 bitcode 启动时，它对地址表内包括自查询在内的所有组合调用 SVF 原生 alias 以校验规范化。每次查询时它还比较选定后端的每一条答案。该开销可达二次规模。正式计时通过比较输出文件的 SHA-256 核对结果。
 
 ## 验证与复跑
 

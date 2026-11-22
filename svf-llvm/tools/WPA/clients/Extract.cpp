@@ -25,7 +25,6 @@ private:
     std::unordered_map<const Instruction*, Id> sites;
     std::unordered_map<const Value*, Id> values;
     std::map<const Function*, std::vector<const ReturnInst*>> returns;
-    std::map<Id, std::vector<Id>> continuations;
     std::vector<const Function*> functions;
     std::set<Id> pointers;
     Id newFlow(Id site)
@@ -39,7 +38,7 @@ private:
     Id pointer(const Value* v);
     void layout();
     void connect(const Instruction& inst);
-    void call(const CallBase& call, Id site);
+    void call(const CallBase& call, Id site, const std::vector<Id>& next);
     void external(const CallBase& call, StringRef name, Id site);
     void buildIndex();
 };
@@ -250,7 +249,7 @@ void Extractor::external(const CallBase& c, StringRef name, Id s)
     }
 }
 
-void Extractor::call(const CallBase& c, Id s)
+void Extractor::call(const CallBase& c, Id s, const std::vector<Id>& next)
 {
     std::vector<const Function*> targets;
     if (auto direct =
@@ -303,7 +302,6 @@ void Extractor::call(const CallBase& c, Id s)
         for (const auto* ret : returns[target])
         {
             auto& out = m.cfg[m.sites[sites.at(ret)].block];
-            const auto& next = continuations[s];
             out.insert(out.end(), next.begin(), next.end());
             if (const Value* v = ret->getReturnValue())
             {
@@ -314,7 +312,6 @@ void Extractor::call(const CallBase& c, Id s)
     }
     if (bypass)
     {
-        const auto& next = continuations[s];
         m.cfg[block].insert(m.cfg[block].end(), next.begin(), next.end());
     }
 }
@@ -326,16 +323,15 @@ void Extractor::connect(const Instruction& inst)
         return;
     if (auto c = dyn_cast<CallBase>(&inst))
     {
+        std::vector<Id> nextBlocks;
         if (inst.isTerminator())
         {
             for (auto* next : successors(inst.getParent()))
-                continuations[s].push_back(
-                    m.sites[sites.at(&next->front())].block);
+                nextBlocks.push_back(m.sites[sites.at(&next->front())].block);
         }
         else
-            continuations[s].push_back(
-                m.sites[sites.at(inst.getNextNode())].block);
-        call(*c, s);
+            nextBlocks.push_back(m.sites[sites.at(inst.getNextNode())].block);
+        call(*c, s, nextBlocks);
         return;
     }
     if (inst.isTerminator())

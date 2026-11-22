@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measure complete snapshot-to-report clients; compare exact report files after timing."""
+"""Measure complete live or replayed clients; compare exact report files after timing."""
 import argparse
 import hashlib
 import json
