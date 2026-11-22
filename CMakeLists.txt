@@ -19,6 +19,12 @@ option(SVF_WARN_AS_ERROR "Treat warnings as errors when building SVF (default: o
 option(SVF_EXPORT_DYNAMIC "Export all (not only used) dynamic symbols to dynamic symbol table")
 option(SVF_ENABLE_ASSERTIONS "Always enable assertions")
 
+option(SVF_CLIENT_CUDA "Build CUDA backend for WPA alias clients" OFF)
+option(SVF_CLIENT_BASELINES "Build Bitmap and Pestrie WPA client backends" OFF)
+if(SVF_CLIENT_CUDA)
+  enable_language(CUDA)
+endif()
+
 # Configure top-level SVF variables (used by CMake for configuring installed SVF package)
 set(SVF_INSTALL_ROOT ${CMAKE_INSTALL_PREFIX})
 set(SVF_INSTALL_BIN_DIR ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR})

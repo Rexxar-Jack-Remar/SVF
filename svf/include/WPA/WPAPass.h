@@ -103,6 +103,11 @@ public:
     /// Run pointer analysis on SVFModule
     virtual void runOnModule(SVFIR* svfModule);
 
+    PointerAnalysis* singleAnalysis() const
+    {
+        return ptaVector.size() == 1 ? ptaVector.front() : nullptr;
+    }
+
     /// PTA name
     virtual inline std::string getPassName() const
     {
