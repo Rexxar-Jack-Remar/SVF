@@ -27,6 +27,8 @@
 
 ## Documentation
 
+WPA can run post-analysis UAF and taint clients from LLVM bitcode or a saved snapshot. [Build and run the clients](docs/alias-clients.md) · [End-to-end measurements](docs/alias-client-results.md)
+
 <br />
 
 <b>SVF</b> is a static value-flow analysis tool for LLVM-based languages. <b>SVF</b> ([CC'16](https://yuleisui.github.io/publications/cc16.pdf)) is able to perform

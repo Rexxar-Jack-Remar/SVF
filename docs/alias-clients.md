@@ -6,6 +6,14 @@
 
 以下命令适用于迁移机器上的 LLVM 16 和 Z3，需使用 CMake 3.23 或以上版本。示例启用所有后端。省略两个 `SVF_CLIENT_*` 选项和 CUDA 参数可构建纯 CPU 版本。GPU 架构值 120 对应本次实验使用的 Blackwell 设备。
 
+本机系统 CMake 为 3.22.1。已配置的 worktree 可先执行 `export PATH="$PWD/build/cmake-env/bin:$PATH"`。在新检出中可用以下命令建立同版本的私有构建环境。
+
+```bash
+python3 -m venv build/cmake-env
+build/cmake-env/bin/python -m pip install cmake==3.31.10
+export PATH="$PWD/build/cmake-env/bin:$PATH"
+```
+
 ```bash
 cmake -S . -B Release-build -G Ninja \
   -DCMAKE_BUILD_TYPE=Release -DSVF_ENABLE_ASSERTIONS=ON \
