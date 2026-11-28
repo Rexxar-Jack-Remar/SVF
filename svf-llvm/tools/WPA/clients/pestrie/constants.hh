@@ -45,7 +45,7 @@
 #define I_ALIAS_MATRIX 1
 #define I_PTED_MATRIX 2           // pointed-to-by matrix
 
-static const char* pt_matrix_info[] = { 
+[[maybe_unused]] static const char* pt_matrix_info[] = { 
   "Points-to",
   "Alias",
   "Pointed-to-by" 
@@ -61,7 +61,7 @@ static const char* pt_matrix_info[] = {
 #define I_STORE_TRANS_MATRIX 5
 #define I_LOAD_TRANS_MATRIX 6
 
-static const char* se_matrix_info[] = { 
+[[maybe_unused]] static const char* se_matrix_info[] = { 
   "Store", 
   "Load", 
   "Store-Store", 
