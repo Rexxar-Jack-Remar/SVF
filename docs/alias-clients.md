@@ -94,3 +94,37 @@ python3 tests/alias-clients/benchmark.py program.snapshot \
 ```
 
 回归用例只编译为 bitcode 后进行静态分析。`client-gpu-tiles` 抽查超过 32 位任务编号的区间、换行边界、空集与未知集合、重复候选和驻留索引上的第二次查询。benchmark 脚本每个配置运行独立进程，轮换后端次序，将超时、失败和报告差异写入 `runs.jsonl`，保留各 client 一份相同报告及所有差异。结果目录须使用新路径，便于保留每次实验的完整记录。
+
+## 批量端到端实验
+
+`tests/alias-clients/end_to_end.py` 接收一个只包含 `.bc` 文件的目录，默认运行 UAF 和 taint 两个 client 以及 `svf`、`cpu`、`cuda`、`bitmap`、`pestrie` 五个后端。每次运行在项目根目录的 `work/<run-name>/` 下保存配置、实际命令、标准输出、标准错误、报告、快照、可选基线索引和 `results.csv`。CSV 同时记录 `client_s`、`total_s`、峰值 RSS、超时、退出状态、报告摘要和命令字符串。
+
+```bash
+python3 tests/alias-clients/end_to_end.py build/bench-inputs \
+  --wpa Release-build/bin/wpa --pta ander \
+  --backends svf cpu cuda bitmap pestrie \
+  --repeats 1 --timeout-s 900 --memory-limit-gb 24
+```
+
+可以用 JSON 配置关闭任意后端或 client，并由命令行参数覆盖配置值：
+
+```json
+{
+  "backends": ["svf", "cpu", "cuda"],
+  "clients": ["uaf", "taint"],
+  "pta": "ander",
+  "repeats": 1,
+  "timeout_s": 900,
+  "memory_limit_gb": 24,
+  "tile": 1048576,
+  "cuda_device": 0,
+  "reuse_index_cache": false
+}
+```
+
+```bash
+python3 tests/alias-clients/end_to_end.py build/bench-inputs \
+  --config work/e2e.json
+```
+
+`svf` 需要 live PTA，因此配置包含 `svf` 时必须指定 bitcode 目录和 `--pta`。内存限制使用 Linux `RLIMIT_AS`，设置为 0 表示不限制。Bitmap/Pestrie 的索引缓存默认关闭，开启 `reuse_index_cache` 后写入当前 run 目录。
