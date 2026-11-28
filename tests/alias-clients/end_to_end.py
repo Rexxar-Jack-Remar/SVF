@@ -96,6 +96,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cuda-device", type=int)
     parser.add_argument("--run-name")
     parser.add_argument(
+        "--prepare",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="run the per-bitcode snapshot preparation pass",
+    )
+    parser.add_argument(
         "--reuse-index-cache",
         action=argparse.BooleanOptionalAction,
         default=None,
@@ -163,6 +169,7 @@ def effective_config(args: argparse.Namespace, config: dict[str, Any]) -> dict[s
         "memory_limit_bytes": int(memory_limit_gb * (1024**3)),
         "tile": tile,
         "cuda_device": cuda_device,
+        "prepare": bool(choose("prepare", True)),
         "reuse_index_cache": bool(choose("reuse_index_cache", False)),
         "run_name": choose(
             "run_name", datetime.now(timezone.utc).strftime("e2e-%Y%m%d-%H%M%S")
@@ -308,40 +315,41 @@ def main() -> int:
     for bitcode in bitcodes:
         stem = safe_name(bitcode.stem)
         snapshot = run_dir / "snapshots" / f"{stem}.{settings['pta']}.snapshot"
-        prepare_stdout = run_dir / "logs" / f"{stem}.prepare.stdout.log"
-        prepare_stderr = run_dir / "logs" / f"{stem}.prepare.stderr.log"
-        prepare_command = [
-            str(wpa),
-            f"-{settings['pta']}",
-            f"-client-save={snapshot}",
-            str(bitcode),
-        ]
-        execution = execute(
-            prepare_command,
-            prepare_stdout,
-            prepare_stderr,
-            settings["timeout_s"],
-            settings["memory_limit_bytes"],
-        )
-        metric = read_metric(prepare_stderr, "CLIENT_PREPARE ")
-        row = blank_row()
-        row.update(
-            {
-                "record_type": "prepare",
-                "bitcode": str(bitcode),
-                "pta": settings["pta"],
-                "command": command_text(prepare_command),
-                "stdout_path": str(prepare_stdout),
-                "stderr_path": str(prepare_stderr),
-                "snapshot_path": str(snapshot),
-                "timeout_s": settings["timeout_s"],
-                "memory_limit_bytes": settings["memory_limit_bytes"],
-                **execution,
-            }
-        )
-        if metric:
-            merge_metric(row, metric)
-        add_row(row)
+        if settings["prepare"]:
+            prepare_stdout = run_dir / "logs" / f"{stem}.prepare.stdout.log"
+            prepare_stderr = run_dir / "logs" / f"{stem}.prepare.stderr.log"
+            prepare_command = [
+                str(wpa),
+                f"-{settings['pta']}",
+                f"-client-save={snapshot}",
+                str(bitcode),
+            ]
+            execution = execute(
+                prepare_command,
+                prepare_stdout,
+                prepare_stderr,
+                settings["timeout_s"],
+                settings["memory_limit_bytes"],
+            )
+            metric = read_metric(prepare_stderr, "CLIENT_PREPARE ")
+            row = blank_row()
+            row.update(
+                {
+                    "record_type": "prepare",
+                    "bitcode": str(bitcode),
+                    "pta": settings["pta"],
+                    "command": command_text(prepare_command),
+                    "stdout_path": str(prepare_stdout),
+                    "stderr_path": str(prepare_stderr),
+                    "snapshot_path": str(snapshot),
+                    "timeout_s": settings["timeout_s"],
+                    "memory_limit_bytes": settings["memory_limit_bytes"],
+                    **execution,
+                }
+            )
+            if metric:
+                merge_metric(row, metric)
+            add_row(row)
 
         for client in settings["clients"]:
             for repeat in range(1, settings["repeats"] + 1):
@@ -386,7 +394,7 @@ def main() -> int:
                             "stdout_path": str(stdout_path),
                             "stderr_path": str(stderr_path),
                             "report_path": str(report),
-                            "snapshot_path": str(snapshot),
+                            "snapshot_path": str(snapshot) if settings["prepare"] else "",
                             "index_cache_path": index_cache,
                             "timeout_s": settings["timeout_s"],
                             "memory_limit_bytes": settings["memory_limit_bytes"],

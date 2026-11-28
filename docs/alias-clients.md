@@ -101,6 +101,15 @@ python3 tests/alias-clients/benchmark.py program.snapshot \
 
 `results.csv` 和 `commands.jsonl` 会在启动时写入表头或创建文件，每完成一个准备阶段或 client/backend 任务就立即刷新一条记录，长时间实验可以直接查看当前进度。
 
+默认会为每个 `.bc` 生成一次快照准备记录。只做 live 端到端测量时可以关闭准备阶段：
+
+```bash
+python3 tests/alias-clients/end_to_end.py build/bench-inputs \
+  --wpa Release-build/bin/wpa \
+  --no-prepare \
+  --run-name e2e-live-only
+```
+
 ```bash
 python3 tests/alias-clients/end_to_end.py build/bench-inputs \
   --wpa Release-build/bin/wpa --pta ander \
