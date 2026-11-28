@@ -117,6 +117,15 @@ def load_config(path: pathlib.Path | None) -> dict[str, Any]:
         value = json.load(stream)
     if not isinstance(value, dict):
         raise ValueError("configuration must be a JSON object")
+    # A generated work/<run>/config.json contains reproducibility metadata and
+    # stores the actual options under ``settings``.  Accepting that format
+    # makes it possible to reuse a previous run after overriding machine-local
+    # paths such as --wpa and the input directory.
+    if "settings" in value:
+        settings = value["settings"]
+        if not isinstance(settings, dict):
+            raise ValueError("configuration settings must be a JSON object")
+        value = settings
     return value
 
 
@@ -281,9 +290,20 @@ def main() -> int:
 
     rows: list[dict[str, Any]] = []
     references: dict[tuple[str, str, int], str] = {}
+    results = run_dir / "results.csv"
+    commands = run_dir / "commands.jsonl"
+    results_stream = results.open("w", newline="")
+    commands_stream = commands.open("w")
+    writer = csv.DictWriter(results_stream, fieldnames=CSV_FIELDS)
+    writer.writeheader()
+    results_stream.flush()
 
     def add_row(row: dict[str, Any]) -> None:
         rows.append(row)
+        writer.writerow(row)
+        results_stream.flush()
+        commands_stream.write(json.dumps({"command": row["command"]}) + "\n")
+        commands_stream.flush()
 
     for bitcode in bitcodes:
         stem = safe_name(bitcode.stem)
@@ -383,14 +403,8 @@ def main() -> int:
                             row["status"] = "report_mismatch"
                     add_row(row)
 
-    results = run_dir / "results.csv"
-    with results.open("w", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=CSV_FIELDS)
-        writer.writeheader()
-        writer.writerows(rows)
-    (run_dir / "commands.jsonl").write_text(
-        "".join(json.dumps({"command": row["command"]}) + "\n" for row in rows)
-    )
+    results_stream.close()
+    commands_stream.close()
 
     failed = [row for row in rows if row["status"] != "ok"]
     print(f"run directory: {run_dir}")
