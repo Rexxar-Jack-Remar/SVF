@@ -261,6 +261,13 @@ def command_text(command: list[str]) -> str:
     return shlex.join(command)
 
 
+def announce_command(command: list[str]) -> None:
+    separator = "=" * 100
+    print(separator, flush=True)
+    print(f"command: {command_text(command)}", flush=True)
+    print(separator, flush=True)
+
+
 def main() -> int:
     args = parse_args()
     try:
@@ -324,6 +331,7 @@ def main() -> int:
                 f"-client-save={snapshot}",
                 str(bitcode),
             ]
+            announce_command(prepare_command)
             execution = execute(
                 prepare_command,
                 prepare_stdout,
@@ -373,6 +381,7 @@ def main() -> int:
                     if settings["reuse_index_cache"] and backend in ("bitmap", "pestrie"):
                         index_cache = str(run_dir / "index-cache")
                         command.insert(-1, f"-client-index-cache={index_cache}")
+                    announce_command(command)
                     execution = execute(
                         command,
                         stdout_path,
