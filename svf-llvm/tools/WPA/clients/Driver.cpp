@@ -1,5 +1,5 @@
 #include "Driver.h"
-#include "MemoryModel/PointerAnalysisImpl.h"
+#include "Query.h"
 #include "Util/CommandLine.h"
 #include "llvm/Support/JSON.h"
 #ifdef __linux__
@@ -14,7 +14,7 @@ namespace
 {
 Option<std::string> client("alias-client", "Post-PTA client: uaf or taint", "");
 Option<std::string> backend("client-backend",
-                            "Query backend: cpu, cuda, bitmap or pestrie",
+                            "Query backend: cpu, cuda, bitmap, pestrie or svf (live PTA only)",
                             "cpu");
 Option<std::string> input("client-load", "Replay a complete client snapshot",
                           "");
@@ -47,6 +47,8 @@ void validate(const std::vector<std::string>& modules)
         fail("tile size must be positive");
     if (replaying() && (!modules.empty() || !output().empty()))
         fail("use one snapshot or bitcode input");
+    if (replaying() && backend() == "svf")
+        fail("svf backend requires a live PTA; use bitcode instead of -client-load");
     std::vector<std::string> paths = modules;
     for (const auto& path : {input(), output(), reports()})
     {
@@ -72,9 +74,7 @@ void run(SVF::BVDataPTAImpl* pta, Clock::time_point wholeStart,
              a != m.index.pointerGroup.end(); ++a)
             for (auto b = a; b != m.index.pointerGroup.end(); ++b)
             {
-                bool native =
-                    a->first == Unknown || b->first == Unknown ||
-                    pta->alias(a->first, b->first) != SVF::AliasResult::NoAlias;
+                bool native = nativeMayAlias(*pta, a->first, b->first);
                 if (native != m.index.alias(a->second, b->second))
                     fail("snapshot differs from SVF alias at nodes " +
                          std::to_string(a->first) + "," +
@@ -107,7 +107,7 @@ void run(SVF::BVDataPTAImpl* pta, Clock::time_point wholeStart,
         if (!file)
             fail("cannot open report " + reports());
     }
-    analyze(m, client() == "uaf", backend(), device(), tile(), verify(),
+    analyze(m, pta, client() == "uaf", backend(), device(), tile(), verify(),
             file.is_open() ? file : std::cout, t);
     if (file.is_open())
     {

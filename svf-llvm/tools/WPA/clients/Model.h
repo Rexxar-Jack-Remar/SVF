@@ -73,6 +73,7 @@ Model extract(SVF::BVDataPTAImpl&, Times&);
 void save(const Model&, const std::string&);
 Model load(const std::string&);
 void fail(const std::string&);
-void analyze(const Model&, bool uaf, const std::string& backend, Id device,
-             Id tile, bool verify, std::ostream&, Times&);
+void analyze(const Model&, SVF::BVDataPTAImpl* pta, bool uaf,
+             const std::string& backend, Id device, Id tile, bool verify,
+             std::ostream&, Times&);
 } // namespace clients

@@ -428,11 +428,12 @@ void taint(const Model& m, Control& cfg, const Relations& alias,
     }
 }
 } // namespace
-void analyze(const Model& m, bool isUaf, const std::string& backend, Id device,
-             Id tile, bool verify, std::ostream& out, Times& times)
+void analyze(const Model& m, SVF::BVDataPTAImpl* pta, bool isUaf,
+             const std::string& backend, Id device, Id tile, bool verify,
+             std::ostream& out, Times& times)
 {
     auto start = Clock::now();
-    Query query(m.index, backend, device, tile, verify, times);
+    Query query(m.index, pta, backend, device, tile, verify, times);
     times.index += seconds(start);
     start = Clock::now();
     Control cfg(m);

@@ -1,4 +1,5 @@
 #include "Query.h"
+#include "MemoryModel/PointerAnalysisImpl.h"
 #ifdef SVF_CLIENT_CUDA
 #    include "Cuda.h"
 #endif
@@ -130,9 +131,17 @@ std::unique_ptr<IQuery> buildBaseline(const Index& index, bool bitmap,
 }
 #endif
 } // namespace
+bool nativeMayAlias(SVF::BVDataPTAImpl& pta, Id a, Id b)
+{
+    // Unknown represents an unmapped address and has no SVF NodeID.
+    return a == Unknown || b == Unknown ||
+           pta.alias(a, b) != SVF::AliasResult::NoAlias;
+}
+
 struct Query::State
 {
     const Index& index;
+    SVF::BVDataPTAImpl* nativePta = nullptr;
     Times& times;
     bool verify;
     Id tile;
@@ -159,8 +168,9 @@ struct Query::State
         return index.alias(groups[a], groups[b]);
     }
 };
-Query::Query(const Index& index, const std::string& backend, Id device, Id tile,
-             bool verify, Times& times)
+Query::Query(const Index& index, SVF::BVDataPTAImpl* pta,
+             const std::string& backend, Id device, Id tile, bool verify,
+             Times& times)
     : state(new State(index, times, verify, tile))
 {
     if (!tile)
@@ -172,6 +182,13 @@ Query::Query(const Index& index, const std::string& backend, Id device, Id tile,
     }
     if (backend == "cpu")
         return;
+    if (backend == "svf")
+    {
+        if (!pta)
+            fail("svf backend requires a live PTA");
+        state->nativePta = pta;
+        return;
+    }
 #ifdef SVF_CLIENT_CUDA
     if (backend == "cuda")
     {
@@ -227,13 +244,21 @@ void Query::serve(const std::vector<Id>& pointers, const ConsumeTile& consume)
         else
 #endif
         {
-            size_t i = first, j = second;
-            for (Id k = 0; k < size; ++k)
-            {
-                s.answers[k] = s.cpu(rows[i], rows[j]);
-                if (++j == n)
-                    j = ++i + 1;
-            }
+            auto fillTile = [&](const std::vector<Id>& ids, auto alias) {
+                size_t i = first, j = second;
+                for (Id k = 0; k < size; ++k)
+                {
+                    s.answers[k] = alias(ids[i], ids[j]);
+                    if (++j == n)
+                        j = ++i + 1;
+                }
+            };
+            if (s.nativePta)
+                fillTile(pointers, [&](Id a, Id b) {
+                    return nativeMayAlias(*s.nativePta, a, b);
+                });
+            else
+                fillTile(rows, [&](Id a, Id b) { return s.cpu(a, b); });
         }
         s.times.query += seconds(start);
         start = Clock::now();

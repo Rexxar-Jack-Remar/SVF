@@ -6,6 +6,8 @@
 
 namespace clients
 {
+bool nativeMayAlias(SVF::BVDataPTAImpl& pta, Id a, Id b);
+
 // The read-only answer view is valid for the duration of the callback.
 using ConsumeTile =
     std::function<void(uint64_t base, llvm::ArrayRef<unsigned char> answers)>;
@@ -15,8 +17,8 @@ class Query
     std::unique_ptr<State> state;
 
 public:
-    Query(const Index&, const std::string& backend, Id device, Id tile,
-          bool verify, Times&);
+    Query(const Index&, SVF::BVDataPTAImpl* pta, const std::string& backend,
+          Id device, Id tile, bool verify, Times&);
     ~Query();
     void serve(const std::vector<Id>& pointers, const ConsumeTile& consume);
 };

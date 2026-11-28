@@ -31,6 +31,7 @@ cmake --build Release-build --target wpa -j16
 ```bash
 wpa=Release-build/bin/wpa
 "$wpa" -ander -alias-client=uaf -client-report=uaf.jsonl program.bc
+"$wpa" -ander -alias-client=uaf -client-backend=svf -client-report=uaf-svf.jsonl program.bc
 "$wpa" -ander -alias-client=taint -client-backend=cuda -client-device=0 \
   -client-report=taint.jsonl program.bc
 
@@ -46,6 +47,8 @@ wpa=Release-build/bin/wpa
 `cpu` 使用规范化集合求交，`cuda` 使用隐式三角索引。`bitmap` 使用 Bitmap 的预构建 alias matrix，`pestrie` 使用 Pestrie 的持久化索引。后两者调用随 WPA 一起构建的 indexer 和原始 `IQuery::IsAlias`，源码取自 `gpu4pta` 提交 `21d73b4` 的 `pestrie/src`，保留原文件头。默认在每次调用中构建并加载这两个索引。指定 `-client-index-cache` 可按规范化输入内容和实现版本复用已写入的索引。`baseline_index` 记录当次的构建或加载状态。
 
 ## 查询与分析语义
+
+`svf` 是 live PTA 后端。它使用与其他后端相同的候选 NodeID 序列和答案块，对每个有效节点对调用当前 PTA 的 `alias(a, b)`。缺少 NodeID 的地址按 MayAlias 处理。该后端需要 bitcode 和一种 PTA（`-ander` 或 `-vfspta`），可直接用于正式计时。启用 `-client-verify` 才会另外遍历整个地址表进行校验。
 
 C++ 入口 `Query::serve(pointers, consume)` 将每个连续区间的逻辑起点与只读布尔答案数组交给 `consume(base, answers)`。回调在下一块复用缓冲区前同步消费这段数据，所有后端使用同一接口。
 
@@ -81,11 +84,11 @@ stderr 的 `CLIENT_METRICS` JSON 包含耗时、查询数、事件数及结果�
 
 ```bash
 python3 tests/alias-clients/check.py --wpa Release-build/bin/wpa \
-  --llvm-bin /data/gzn-data/llvm-16.0.4.obj/bin --backends cpu cuda bitmap pestrie
+  --llvm-bin /data/gzn-data/llvm-16.0.4.obj/bin --backends cpu cuda bitmap pestrie svf
 cmake --build Release-build --target client-gpu-tiles
 Release-build/bin/client-gpu-tiles
 python3 tests/alias-clients/benchmark.py program.bc --live-pta ander \
-  --wpa Release-build/bin/wpa --output live-runs
+  --wpa Release-build/bin/wpa --backends cpu cuda bitmap pestrie svf --output live-runs
 python3 tests/alias-clients/benchmark.py program.snapshot \
   --wpa Release-build/bin/wpa --output replay-runs --repeats 3
 ```

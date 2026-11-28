@@ -23,7 +23,8 @@ def main():
     ap.add_argument("--live-pta", choices=["ander","vfspta"], help="extract events and index after a fresh PTA")
     ap.add_argument("--wpa", required=True)
     ap.add_argument("--output", type=pathlib.Path, required=True)
-    ap.add_argument("--backends", nargs="+", default=["cpu","cuda","bitmap","pestrie"])
+    ap.add_argument("--backends", nargs="+", default=["cpu","cuda","bitmap","pestrie"],
+                    help="query backends (svf requires --live-pta)")
     ap.add_argument("--clients", nargs="+", choices=["uaf","taint"], default=["uaf","taint"])
     ap.add_argument("--repeats", type=int, default=3)
     ap.add_argument("--timeout", type=int, default=300)
@@ -31,6 +32,8 @@ def main():
     ap.add_argument("--index-cache", type=pathlib.Path)
     ap.add_argument("--tile", type=int, default=1048576)
     args = ap.parse_args()
+    if "svf" in args.backends and not args.live_pta:
+        ap.error("svf backend requires --live-pta and bitcode input")
     if min(args.repeats,args.timeout,args.tile) < 1:
         ap.error("repeats, timeout and tile must be positive")
     args.output.mkdir(parents=True,exist_ok=False)

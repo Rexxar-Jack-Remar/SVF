@@ -42,6 +42,10 @@ def run(args):
         raise RuntimeError(f"{args}\n{result.stderr[-4000:]}\n{result.stdout[-1000:]}")
     return result
 
+def client_metrics(result):
+    return json.loads(next(line.removeprefix("CLIENT_METRICS ")
+                           for line in result.stderr.splitlines() if line.startswith("CLIENT_METRICS ")))
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--wpa", required=True)
@@ -57,8 +61,9 @@ def main():
                 c.write_text(DECL + body)
                 run([cfg.llvm_bin/"clang","-g","-O0","-Xclang","-disable-O0-optnone","-emit-llvm","-c",c,"-o",raw])
                 run([cfg.llvm_bin/"opt","-passes=mem2reg",raw,"-o",bc])
-                opts = [cfg.wpa,f"-alias-client={client}",f"-client-report={report}","-client-verify"]
-                run(opts + [f"-{cfg.pta}",f"-client-save={snap}",bc])
+                opts = [cfg.wpa,f"-alias-client={client}",f"-client-report={report}"]
+                live = run(opts + ["-client-verify",f"-{cfg.pta}",f"-client-save={snap}",bc])
+                reference_metrics = client_metrics(live)
                 reference = report.read_text()
                 records = [json.loads(line) for line in reference.splitlines()]
                 assert bool(records) == positive, (client,name,records)
@@ -74,13 +79,17 @@ def main():
                     assert all(r["path"][0] == r["from"] and r["path"][-1] == r["to"] for r in records)
                 for backend in cfg.backends:
                     for tile in [1,7]:
-                        replay = [f"-client-backend={backend}",f"-client-tile={tile}",f"-client-load={snap}"]
+                        args = opts + [f"-client-backend={backend}",f"-client-tile={tile}"]
+                        if backend == "svf":
+                            args.extend([f"-{cfg.pta}",bc])
+                        else:
+                            args.extend(["-client-verify",f"-client-load={snap}"])
                         if backend in ("bitmap","pestrie"):
-                            replay.append(f"-client-index-cache={base / 'cache'}")
-                        metrics = run(opts+replay)
+                            args.append(f"-client-index-cache={base / 'cache'}")
+                        parsed = client_metrics(run(args))
+                        for field in ("candidates","pairs","hits","reports"):
+                            assert parsed[field] == reference_metrics[field], (client,name,backend,tile,field)
                         if tile == 7 and backend in ("bitmap","pestrie"):
-                            parsed = json.loads(next(line.removeprefix("CLIENT_METRICS ")
-                                for line in metrics.stderr.splitlines() if line.startswith("CLIENT_METRICS ")))
                             assert parsed["baseline_index"] in ("loaded","none")
                         assert report.read_text() == reference, (client,name,backend,tile)
                 if name == "reassign":
@@ -105,6 +114,9 @@ def main():
                 actual = report.read_bytes()
                 assert actual and expected.setdefault(client, actual) == actual, (client,"function order")
         print("stable function-order reports", flush=True)
+        replay = subprocess.run([cfg.wpa, "-alias-client=uaf", "-client-backend=svf",
+                                 f"-client-load={snap}"], capture_output=True, text=True)
+        assert replay.returncode and "svf backend requires a live PTA" in replay.stderr
         snap.write_bytes(snap.read_bytes()[:100])
         broken = subprocess.run([cfg.wpa, "-alias-client=uaf", f"-client-load={snap}"],capture_output=True)
         assert broken.returncode != 0, "truncated snapshot was accepted"
